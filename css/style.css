@@ -733,6 +733,7 @@ body::after {
   color: var(--text-heading);
   text-align: center;
   line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .flashcard-rating {
@@ -878,7 +879,15 @@ body::after {
   }
   
   .nav-tabs {
-    flex-direction: column;
+    flex-direction: row;
+    overflow-x: auto;
+    white-space: nowrap;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    justify-content: flex-start;
+  }
+  .nav-tabs::-webkit-scrollbar {
+    display: none;
   }
   
   .glass-card {
@@ -900,17 +909,19 @@ body::after {
   }
   
   .tab-btn {
-    min-width: 0;
-    padding: 0.6rem 0.5rem;
-    font-size: 0.85rem;
+    min-width: max-content;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+    flex-shrink: 0;
   }
   
   .tab-label {
-    display: none;
+    display: inline;
   }
   
   .tab-icon {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
+    margin-right: 0.4rem;
   }
   
   .vocab-stats {
@@ -944,4 +955,148 @@ body::after {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
+}
+
+/* 19. Nuance Chatbot */
+.nuance-fab {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  color: white;
+  border: none;
+  border-radius: 30px;
+  padding: 1rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  transition: all 0.3s ease;
+}
+
+.nuance-fab:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+.nuance-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+  z-index: 200;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+}
+
+.nuance-modal {
+  width: 100%;
+  max-width: 500px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 1.5rem;
+  position: relative;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.nuance-output .nuance-item {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+
+/* 18. Mini Dictionary */
+.clickable-word {
+  cursor: pointer;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
+  transition: all 0.2s ease;
+}
+.clickable-word:hover {
+  color: var(--accent-1);
+  border-bottom: 1px solid var(--accent-1);
+  background: rgba(108, 92, 231, 0.1);
+  border-radius: 2px;
+}
+
+#mini-dict-popup {
+  position: absolute;
+  z-index: 10000;
+  background: var(--glass-bg);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid var(--glass-border);
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  max-width: 250px;
+  min-width: 200px;
+  display: none;
+  color: #fff;
+  font-size: 0.95rem;
+  transform: translate(-50%, -100%);
+  margin-top: -10px;
+}
+#mini-dict-popup::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -8px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: var(--glass-border) transparent transparent transparent;
+}
+
+.mini-dict-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.mini-dict-word {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--accent-1);
+}
+.mini-dict-phonetic {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.mini-dict-meanings {
+  margin-bottom: 1rem;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.mini-dict-meanings p {
+  margin: 0.3rem 0;
+  line-height: 1.4;
+}
+.mini-dict-add-btn {
+  background: var(--accent-2);
+  color: white;
+  border: none;
+  padding: 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+.mini-dict-add-btn:hover {
+  opacity: 0.9;
 }

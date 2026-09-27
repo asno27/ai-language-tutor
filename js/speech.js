@@ -12,27 +12,55 @@ export class SpeechManager {
     if (this.isSupported) {
       this.recognition = new SpeechRecognition();
       this.recognition.lang = 'en-US';
-      this.recognition.interimResults = false;
+      this.recognition.interimResults = true;
       this.recognition.maxAlternatives = 1;
-      this.recognition.continuous = false;
+      this.recognition.continuous = true;
+      this.accumulatedText = '';
       
       this.recognition.onresult = (event) => {
-        const text = event.results[0][0].transcript;
-        this.onResult?.(text);
+        let interimText = '';
+        let finalText = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalText += event.results[i][0].transcript;
+          } else {
+            interimText += event.results[i][0].transcript;
+          }
+        }
+        
+        if (finalText) {
+          this.accumulatedText += finalText + ' ';
+        }
+        
+        // UI 업데이트를 위해 onInterim 콜백 호출
+        this.onInterim?.(this.accumulatedText + interimText);
       };
       
       this.recognition.onstart = () => {
         this.isListening = true;
+        this.accumulatedText = ''; // 녹음 시작 시 초기화
         this.onStart?.();
       };
       
       this.recognition.onend = () => {
         this.isListening = false;
+        // 녹음이 완전히 끝났을 때 최종 결과 전송
+        if (this.accumulatedText.trim()) {
+          this.onResult?.(this.accumulatedText.trim());
+        } else {
+          this.onError?.('no-speech');
+        }
         this.onEnd?.();
       };
       
       this.recognition.onerror = (event) => {
         this.isListening = false;
+        // no-speech 에러는 continuous 모드에서 종종 발생하므로 무시하거나 별도 처리 가능
+        if (event.error === 'no-speech' && this.accumulatedText.trim()) {
+          // 이미 누적된 텍스트가 있다면 에러를 무시하고 onend로 넘김
+          return;
+        }
         this.onError?.(event.error);
       };
     }

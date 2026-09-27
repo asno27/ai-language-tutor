@@ -9,7 +9,44 @@ export function getSystemPrompt(mode) {
     case 'pronunciation':
       return `You are a pronunciation coach for Korean English learners. Compare target vs STT result.\nRespond ONLY with valid JSON: { "recognized": "...", "problematicWords": [...], "tips": "...(Korean)", "overallComment": "...(Korean)", "score": number }`;
     case 'daily':
-      return `You generate one interesting English sentence for Korean learners to practice pronunciation and speaking.\nRespond ONLY with valid JSON: { "sentence": "...", "translation": "...(한국어 번역)", "context": "...(한국어로 이 문장이 사용되는 상황이나 배경 설명)" }\nRules:\n1. Sentence should be 8-15 words long\n2. Use natural, commonly-used expressions\n3. Include a mix of difficulty levels\n4. Translation and context MUST be in Korean\n5. Vary topics: daily life, travel, business, culture, idioms, etc.`;
+      return `You generate 3 distinct English expressions for Korean learners.
+Categories MUST be: 1) "여행/식당" (Travel/Restaurant), 2) "비즈니스" (Business), 3) "일상" (Daily Life).
+Respond ONLY with valid JSON exactly matching this structure:
+{
+  "themes": [
+    {
+      "name": "여행/식당",
+      "sentence": "English sentence...",
+      "translation": "Korean translation...",
+      "words": [{"word": "vocab", "meaning": "meaning in korean"}]
+    },
+    ...
+  ]
+}
+Rules:
+1. Sentences should be highly practical and natural.
+2. Words array should contain 2-3 key vocabulary or idioms used in the sentence.
+3. No other text outside JSON.`;
+    case 'custom_example':
+      return `You are a creative English teacher. Generate 2 custom example sentences for a given English word, strictly tailored to the user's specific interests (e.g., IT, gaming, cooking, sports).
+Respond ONLY with valid JSON: { "customExamples": [ { "en": "English sentence related to interests", "ko": "Korean translation" } ] }
+The sentences must naturally use the target word and strongly relate to the provided interests.`;
+    case 'nuance':
+      return `You are an expert English linguist. Explain the nuanced differences between confusing English words or expressions for Korean learners.
+Respond ONLY with valid JSON: 
+{
+  "explanation": "Clear, concise explanation of the core difference in Korean (존댓말).",
+  "words": [
+    {
+      "word": "The specific word/phrase",
+      "nuance": "Specific nuance of this word in Korean",
+      "examples": [
+        { "en": "Example sentence 1", "ko": "Korean translation" },
+        { "en": "Example sentence 2", "ko": "Korean translation" }
+      ]
+    }
+  ]
+}`;
     default:
       return '';
   }
@@ -18,15 +55,19 @@ export function getSystemPrompt(mode) {
 export function getUserPrompt(mode, data) {
   switch (mode) {
     case 'writing':
-      return data.text;
+      return `Please process this text and return the result in JSON format: ${data.text}`;
     case 'translation':
-      return data.text;
+      return `Translate the following text and return the result in JSON format: ${data.text}`;
     case 'dictionary':
-      return data.word;
+      return `Look up the following word and return the result in JSON format: ${data.word}`;
     case 'pronunciation':
-      return `목표 문장: ${data.target}\n인식된 문장: ${data.recognized}`;
+      return `Evaluate this pronunciation and return the result in JSON format. Target: ${data.target}\nRecognized: ${data.recognized}`;
     case 'daily':
-      return data.topic ? `Topic: ${data.topic}. Generate a practice sentence.` : 'Generate a random English practice sentence for a Korean learner.';
+      return 'Generate 3 categorized English expressions (Travel, Business, Daily) in JSON format as instructed.';
+    case 'custom_example':
+      return `Generate custom examples in JSON format for the word "${data.word}" tailored to these interests: "${data.interests}"`;
+    case 'nuance':
+      return `Explain the nuance difference between these words in JSON format: "${data.query}"`;
     default:
       return '';
   }

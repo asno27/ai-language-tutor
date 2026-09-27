@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
   <div id="app">
@@ -47,7 +47,15 @@
       </button>
       <button class="tab-btn" data-tab="daily">
         <span class="tab-icon">📺</span>
-        <span class="tab-label">따라하기</span>
+        <span class="tab-label">오늘의 영어 추천</span>
+      </button>
+      <button class="tab-btn" data-tab="worksheet">
+        <span class="tab-icon">📖</span>
+        <span class="tab-label">인터랙티브 학습지</span>
+      </button>
+      <button class="tab-btn" data-tab="youtube">
+        <span class="tab-icon">▶️</span>
+        <span class="tab-label">유튜브 번역</span>
       </button>
     </nav>
 
@@ -165,6 +173,10 @@
             <h2>📓 나만의 단어장</h2>
             <p class="card-desc">저장한 단어를 플래시카드로 복습하세요</p>
           </div>
+          <div class="vocab-settings" style="margin-bottom: 1.5rem;">
+            <label for="vocab-interests" style="display:block; font-size: 0.85rem; font-weight:600; color:var(--text-secondary); margin-bottom:0.5rem;">🎯 내 관심사 (예문 맞춤 생성)</label>
+            <input type="text" id="vocab-interests" class="text-input" placeholder="예: IT, 요리, 게임, 비즈니스 등...">
+          </div>
           <div class="vocab-stats">
             <div class="stat-item"><span class="stat-number" id="vocab-total">0</span><span class="stat-label">저장된 단어</span></div>
             <div class="stat-item"><span class="stat-number" id="vocab-review-count">0</span><span class="stat-label">복습할 단어</span></div>
@@ -210,11 +222,11 @@
       <section class="tab-pane" id="pane-daily">
         <div class="glass-card input-card">
           <div class="card-header">
-            <h2>📺 오늘의 문장 따라하기</h2>
-            <p class="card-desc">매일 새로운 영어 문장을 듣고 따라 말해보세요</p>
+            <h2>📅 오늘의 영어 추천</h2>
+            <p class="card-desc">매일 여행, 비즈니스, 일상에서 쓰이는 새로운 문장과 단어를 배워보세요!</p>
           </div>
           <div class="daily-sentence" id="daily-sentence">
-            <div class="placeholder-message"><span class="placeholder-icon">🎯</span><p>버튼을 눌러 오늘의 문장을 받아보세요</p></div>
+            <div class="placeholder-message"><span class="placeholder-icon">🎯</span><p>버튼을 눌러 오늘의 영어를 받아보세요!</p></div>
           </div>
           <div class="daily-practice" id="daily-practice" style="display:none;">
             <div class="listen-buttons">
@@ -249,6 +261,111 @@
         </div>
       </section>
 
+      <!-- Worksheet Pane -->
+      <section class="tab-pane" id="pane-worksheet">
+        <div class="glass-card input-card">
+          <div class="card-header">
+            <h2>📖 인터랙티브 학습지 & 쉐도잉</h2>
+            <p class="card-desc">소울영어 학습지를 직접 풀고 낭독하며 실력을 키워보세요</p>
+          </div>
+          <div class="worksheet-selector" style="margin-bottom: 1.5rem;">
+            <select id="worksheet-select" class="text-input" style="cursor:pointer; width:100%;">
+              <option value="" disabled selected>학습할 주차를 선택하세요</option>
+            </select>
+          </div>
+          <div id="worksheet-content" style="display:none;">
+            <div class="video-container" style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; margin-bottom:1.5rem;">
+              <iframe id="worksheet-video" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allowfullscreen></iframe>
+            </div>
+            
+            <h3 style="margin-bottom: 1rem; color: var(--accent-1);">✍️ 딕테이션 (빈칸 채우기)</h3>
+            <div id="worksheet-dictation" style="margin-bottom: 2rem;"></div>
+            <button class="submit-btn" id="worksheet-check-btn" style="margin-bottom: 2rem; width: 100%;">
+              <span class="btn-text">정답 확인하기</span>
+            </button>
+            
+            <h3 style="margin-bottom: 1rem; color: var(--accent-1);">🎙️ 쉐도잉 낭독 & 발음 평가</h3>
+            <div class="daily-sentence-card" style="margin-bottom: 1rem;">
+              <div class="daily-sentence-text" id="worksheet-shadowing-text" style="font-size: 1.1rem; line-height: 1.6; margin-bottom: 10px;"></div>
+              <div class="daily-sentence-translation" id="worksheet-shadowing-ko" style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 15px;"></div>
+              
+              <div class="input-actions" style="justify-content: space-between;">
+                <p class="mic-status" id="worksheet-mic-status" style="margin: 0; font-size: 0.9rem; flex-grow: 1;">버튼을 누르고 전체 요약을 낭독해 보세요</p>
+                <button class="mic-btn" id="worksheet-mic-btn" title="낭독 시작">
+                  <span class="mic-icon">🎙️</span>
+                </button>
+              </div>
+              <div id="worksheet-stt-result" style="display:none; margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px;">내 인식된 음성:</div>
+                <div id="worksheet-stt-text" style="font-style: italic; color: #fff;"></div>
+              </div>
+            </div>
+            <div class="glass-card output-card" id="worksheet-output" style="margin-top:1rem; min-height: 100px;">
+              <div class="placeholder-message"><span class="placeholder-icon">🎯</span><p>낭독 후 발음과 유창성 피드백이 여기에 표시됩니다.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- YouTube Translation Pane -->
+      <section class="tab-pane" id="pane-youtube">
+        <div class="glass-card input-card">
+          <div class="card-header">
+            <h2>▶️ 유튜브 번역</h2>
+            <p class="card-desc">유튜브 영상 링크를 입력하면 영어 자막/음성을 한국어로 번역합니다</p>
+          </div>
+          <div class="search-input-wrapper">
+            <input type="text" id="youtube-input" class="text-input search-input" placeholder="유튜브 링크를 붙여넣으세요... (예: https://www.youtube.com/watch?v=...)">
+            <button class="submit-btn" id="youtube-submit">
+              <span class="btn-text">번역</span>
+              <span class="btn-icon">🔍</span>
+            </button>
+          </div>
+        </div>
+        <div class="glass-card output-card" id="youtube-output">
+          <div class="placeholder-message">
+            <span class="placeholder-icon">🎥</span>
+            <p>번역 결과가 여기에 표시됩니다 (최대 20분 길이 권장)</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Nuance Chatbot Floating Button -->
+      <button class="nuance-fab" id="nuance-fab" title="뉘앙스 감별기" onclick="document.getElementById('nuance-overlay').style.display='flex'; document.getElementById('nuance-input').focus();">💡 뉘앙스 질문</button>
+
+      <!-- Mini Dictionary Popup -->
+      <div id="mini-dict-popup">
+        <div class="mini-dict-header">
+          <span class="mini-dict-word" id="mini-dict-word">Word</span>
+          <span class="mini-dict-phonetic" id="mini-dict-phonetic"></span>
+        </div>
+        <div class="mini-dict-meanings" id="mini-dict-meanings">
+          <div class="placeholder-message" style="margin:0; padding:10px 0;"><span class="placeholder-icon" style="font-size:1.2rem;">⏳</span><p style="font-size:0.8rem; margin:0;">검색 중...</p></div>
+        </div>
+        <button class="mini-dict-add-btn" id="mini-dict-add-btn">+ 단어장에 추가</button>
+      </div>
+
+      <!-- Nuance Chatbot Modal -->
+      <div class="nuance-overlay" id="nuance-overlay" style="display:none;" onclick="if(event.target === this) this.style.display='none';">
+        <div class="nuance-modal glass-card">
+          <div class="card-header" style="margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h2 style="font-size:1.2rem; margin:0;">💡 뉘앙스 감별기</h2>
+              <p style="font-size:0.8rem; margin:0; color:var(--text-muted);">헷갈리는 단어들의 미묘한 차이를 알려드려요</p>
+            </div>
+            <button id="nuance-close" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:1.2rem;" onclick="document.getElementById('nuance-overlay').style.display='none';">✕</button>
+          </div>
+          <div class="search-input-wrapper">
+            <input type="text" id="nuance-input" class="text-input search-input" placeholder="예: see vs look vs watch">
+            <button class="submit-btn" id="nuance-submit" onclick="if(window.handleNuanceSubmit) window.handleNuanceSubmit();">
+              <span class="btn-text">질문</span>
+            </button>
+          </div>
+          <div class="nuance-output" id="nuance-output" style="margin-top:1rem; max-height:400px; overflow-y:auto; padding-right:5px;">
+            <div class="placeholder-message"><span class="placeholder-icon">🤔</span><p>어떤 단어의 뉘앙스가 궁금하신가요?</p></div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- Loading Overlay -->
@@ -260,6 +377,10 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=5"></script>
+
+
+
 </body>
 </html>
+

@@ -13,3 +13,15 @@ package-lock.json
 # Environment
 .env
 .env.local
+
+# 🔒 비밀 정보가 들어 있는 파일 — 공개 저장소에 절대 올리지 않음
+# PC 서버 전체 (API 키, ngrok 토큰, 유튜브 쿠키, 가상환경, 대용량 파일)
+server/*
+!server/requirements.txt
+# 루트의 일회성 수정/배포 스크립트 (GitHub 토큰·API 키 포함된 것 있음)
+/*.py
+# 예전 버전 사본
+/live_*.js
+
+# 로컬 개발 설정
+.claude/
