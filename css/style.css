@@ -1334,3 +1334,111 @@ body::after {
   .rp-msg { max-width: 92%; }
   .roleplay-chat { max-height: 50vh; }
 }
+
+/* === PDF Worksheet === */
+.pdf-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 1.4rem 1rem;
+  border: 2px dashed rgba(102, 126, 234, 0.45);
+  border-radius: 14px;
+  background: rgba(102, 126, 234, 0.08);
+  color: var(--text-heading);
+  cursor: pointer;
+  text-align: center;
+  transition: background var(--transition), border-color var(--transition);
+}
+.pdf-drop:hover, .pdf-drop.dragging { background: rgba(102, 126, 234, 0.18); border-color: var(--accent-primary-1); }
+.pdf-drop-icon { font-size: 1.5rem; }
+.pdf-drop-sub { display: block; font-size: 0.8rem; color: rgba(255, 255, 255, 0.55); }
+.pdf-recent { margin-top: 1rem; display: flex; flex-direction: column; gap: 6px; }
+.pdf-recent-label { font-size: 0.8rem; color: rgba(255, 255, 255, 0.55); }
+.pdf-recent-item { display: flex; gap: 6px; }
+.pdf-recent-open {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  color: var(--text-body);
+  padding: 8px 12px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdf-recent-open:hover { background: rgba(255, 255, 255, 0.1); }
+.pdf-recent-meta { font-size: 0.75rem; color: rgba(255, 255, 255, 0.5); margin-left: 4px; }
+.pdf-recent-del {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  width: 36px;
+  cursor: pointer;
+}
+.pdf-recent-del:hover { color: var(--error); border-color: var(--error); }
+.pdf-status { margin-top: 0.8rem; font-size: 0.9rem; color: var(--text-body); min-height: 1.2em; }
+.pdf-status.error { color: var(--warning-1); }
+.pdf-doc-title { color: var(--text-heading); font-weight: 700; margin-bottom: 1rem; word-break: break-all; }
+.pdf-section {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+}
+.pdf-section-head { font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); margin-bottom: 6px; }
+.pdf-section-msg { font-size: 0.9rem; color: var(--text-body); margin-top: 4px; line-height: 1.5; }
+.pdf-section-msg.error { color: var(--warning-1); }
+.pdf-summary { color: var(--text-heading); line-height: 1.6; margin-bottom: 8px; }
+.pdf-passage { margin-bottom: 10px; }
+.pdf-passage summary { cursor: pointer; color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; }
+.pdf-passage-text { margin-top: 8px; line-height: 1.8; color: var(--text-body); }
+.pdf-key {
+  background: rgba(247, 151, 30, 0.25);
+  color: var(--text-heading);
+  border-radius: 4px;
+  padding: 0 2px;
+}
+.pdf-block { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--glass-border); }
+.pdf-block-title { font-weight: 600; color: var(--text-heading); margin-bottom: 8px; }
+.pdf-vocab-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 4px 0; }
+.pdf-vocab-word { font-weight: 600; color: var(--text-heading); }
+.pdf-vocab-meaning { color: rgba(255, 255, 255, 0.7); flex: 1; min-width: 120px; }
+.pdf-save-btn {
+  background: rgba(102, 126, 234, 0.2);
+  border: 1px solid rgba(102, 126, 234, 0.35);
+  color: var(--text-heading);
+  border-radius: 14px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.pdf-save-btn.saved { background: rgba(67, 233, 123, 0.15); border-color: rgba(67, 233, 123, 0.35); cursor: default; }
+.pdf-blank-row { line-height: 2.2; color: var(--text-body); margin-bottom: 4px; }
+.pdf-blank {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--accent-primary-1);
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+  text-align: center;
+  max-width: 100%;
+}
+.pdf-check-btn { margin-top: 6px; }
+.pdf-shadow-text { color: var(--text-heading); line-height: 1.7; font-size: 1.05rem; }
+.pdf-shadow-ko { color: rgba(255, 255, 255, 0.6); margin-top: 4px; font-size: 0.9rem; }
+.pdf-shadow-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.pdf-shadow-mic.recording { background: rgba(255, 107, 107, 0.3); border-color: var(--error); }
+.pdf-shadow-score { font-size: 1.2rem; font-weight: 700; color: var(--text-heading); margin-top: 8px; }
+.pdf-problem {
+  background: rgba(255, 107, 107, 0.15);
+  color: var(--error);
+  padding: 1px 8px;
+  border-radius: 4px;
+}

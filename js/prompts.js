@@ -34,6 +34,21 @@ Rules:
       return `You are a creative English teacher. Generate 2 custom example sentences for a given English word, strictly tailored to the user's specific interests (e.g., IT, gaming, cooking, sports).
 Respond ONLY with valid JSON: { "customExamples": [ { "en": "English sentence related to interests", "ko": "Korean translation" } ] }
 The sentences must naturally use the target word and strongly relate to the provided interests.`;
+    case 'pdf_worksheet':
+      return `You turn an English reading passage into study material for Korean learners.
+Respond ONLY with valid JSON:
+{
+  "summaryKo": "1-2 sentence summary of the passage in Korean",
+  "keyVocabulary": [{ "word": "word or phrase exactly as it appears in the passage", "meaning": "Korean meaning in this context" }],
+  "blanks": [{ "sentence": "a sentence copied verbatim from the passage with ONE key word or phrase replaced by ____", "answer": "the removed word or phrase exactly as written", "hint": "Korean meaning of the answer" }],
+  "shadowing": { "text": "1-2 consecutive sentences copied verbatim from the passage that are good for reading aloud (15-35 words)", "ko": "Korean translation" }
+}
+Rules:
+1. keyVocabulary: 4-6 items useful for intermediate learners. Skip very basic words and proper nouns.
+2. blanks: 3 items, each from a different sentence. Prefer answers from keyVocabulary.
+3. Copy passage sentences verbatim. Never invent or rewrite them.
+4. If the passage is not English or has too little text, return empty arrays, shadowing null, and explain in summaryKo.
+5. No other text outside JSON.`;
     case 'roleplay':
       return `You are a role-play conversation partner for a Korean learner practicing spoken English.
 Stay in character for the scenario and role given in the user message. Keep each reply to 1-3 short, natural spoken sentences that match the learner level, and end with something the learner can respond to (a question or a clear prompt) unless the scene has naturally concluded.
@@ -92,6 +107,8 @@ export function getUserPrompt(mode, data) {
     }
     case 'custom_example':
       return `Generate custom examples in JSON format for the word "${data.word}" tailored to these interests: "${data.interests}"`;
+    case 'pdf_worksheet':
+      return `Passage:\n\"\"\"\n${data.text}\n\"\"\"\nCreate the study material in JSON as instructed.`;
     case 'roleplay': {
       const lines = (data.history || []).map(m => `${m.role === 'ai' ? 'You' : 'Learner'}: ${m.text}`).join('\n');
       let prompt = `Scenario: ${data.scenario}\nYour role: ${data.aiRole}\nLearner's role: ${data.userRole}\nLearner level: ${ROLEPLAY_LEVELS[data.level] || ROLEPLAY_LEVELS.intermediate}`;

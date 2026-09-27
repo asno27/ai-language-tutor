@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
   <div id="app">
@@ -315,6 +315,20 @@
 
       <!-- Worksheet Pane -->
       <section class="tab-pane" id="pane-worksheet">
+        <div class="glass-card input-card" id="pdf-ws-card">
+          <div class="card-header">
+            <h2>📄 내 PDF로 학습지 만들기</h2>
+            <p class="card-desc">영어 지문 PDF를 올리면 AI가 핵심 단어, 빈칸 퀴즈, 쉐도잉 문장을 만들어 드려요. PDF 파일은 이 기기 안에서만 읽고, 뽑아낸 글자만 AI 분석을 위해 전송돼요. 결과는 이 기기에 저장돼요.</p>
+          </div>
+          <label class="pdf-drop" id="pdf-drop">
+            <input type="file" id="pdf-file" accept="application/pdf,.pdf" hidden>
+            <span class="pdf-drop-icon">📂</span>
+            <span>PDF 파일 선택 <span class="pdf-drop-sub">또는 여기로 끌어다 놓기</span></span>
+          </label>
+          <div class="pdf-recent" id="pdf-recent"></div>
+          <div class="pdf-status" id="pdf-status"></div>
+        </div>
+        <div class="glass-card output-card" id="pdf-ws-output" style="display:none;"></div>
         <div class="glass-card input-card">
           <div class="card-header">
             <h2>📖 인터랙티브 학습지 & 쉐도잉</h2>
@@ -429,7 +443,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=7"></script>
+  <script type="module" src="js/app.js?v=8"></script>
 
 
 

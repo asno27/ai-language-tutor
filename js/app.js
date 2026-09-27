@@ -1437,3 +1437,361 @@ roleplayMic.addEventListener('click', () => {
   if (roleplaySpeech.isListening) roleplaySpeech.stop();
   else { window.speechSynthesis?.cancel(); roleplaySpeech.start(); }
 });
+
+// === PDF WORKSHEET (Phase 2.2) ===
+// PDF에서 글자를 뽑아 구간별로 AI 분석 → 핵심 단어 / 빈칸 퀴즈 / 쉐도잉. 결과는 파일 해시 기준으로 localStorage에 캐시
+const PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.3.289/pdf.min.mjs';
+const PDFJS_WORKER_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.3.289/pdf.worker.min.mjs';
+const PDF_CHUNK_CHARS = 1500;     // AI에 한 번에 보내는 글자 수
+const PDF_MAX_CHUNKS = 10;        // 문서당 최대 분석 구간 (API 한도 보호)
+const PDF_MAX_FILE_MB = 30;
+const PDF_REQUEST_GAP_MS = 1500;  // 구간 사이 대기 (분당 요청 한도 보호)
+const PDF_INDEX_KEY = 'pdf_ws_index';
+const PDF_DOC_PREFIX = 'pdf_ws_';
+const PDF_MAX_DOCS = 8;
+
+const pdfFileInput = $('#pdf-file');
+const pdfDrop = $('#pdf-drop');
+const pdfRecent = $('#pdf-recent');
+const pdfStatus = $('#pdf-status');
+const pdfOutput = $('#pdf-ws-output');
+const pdfSpeech = new SpeechManager();
+let pdfjsPromise = null;
+let pdfRunId = 0;                 // 새 PDF를 열면 이전 분석 루프를 멈추기 위한 번호
+let pdfShadowTarget = null;       // { text, resultEl, btn }
+const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
+
+function loadPdfJs() {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import(PDFJS_URL).then(mod => {
+      mod.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+      return mod;
+    }).catch(e => { pdfjsPromise = null; throw e; });
+  }
+  return pdfjsPromise;
+}
+
+function setPdfStatus(text, isError = false) {
+  pdfStatus.textContent = text;
+  pdfStatus.classList.toggle('error', isError);
+}
+
+async function hashArrayBuffer(buf) {
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
+async function extractPdfText(buf) {
+  const pdfjs = await loadPdfJs();
+  const pdf = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
+  const limit = PDF_CHUNK_CHARS * PDF_MAX_CHUNKS * 1.2;
+  let text = '';
+  for (let p = 1; p <= pdf.numPages && text.length < limit; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    text += content.items.map(it => (it.str || '') + (it.hasEOL ? '\n' : '')).join('') + '\n';
+  }
+  return { text, pages: pdf.numPages };
+}
+
+function splitPdfText(raw) {
+  const text = raw
+    .replace(/(\w)-\n(\w)/g, '$1$2')   // 줄 끝 하이픈으로 끊긴 단어 잇기
+    .replace(/\s*\n\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  const sentences = text.split(/(?<=[.!?]["')\]]?)\s+(?=["'(\[]?[A-Z0-9])/);
+  const chunks = [];
+  let current = '';
+  for (const s of sentences) {
+    if (current && (current.length + s.length + 1) > PDF_CHUNK_CHARS) {
+      chunks.push(current);
+      current = '';
+    }
+    current = current ? `${current} ${s}` : s;
+    // 문장 부호가 없어 한 문장이 너무 긴 경우 강제로 자름
+    while (current.length > PDF_CHUNK_CHARS * 1.5) {
+      chunks.push(current.slice(0, PDF_CHUNK_CHARS));
+      current = current.slice(PDF_CHUNK_CHARS);
+    }
+  }
+  if (current.trim()) chunks.push(current);
+  return chunks.filter(c => c.trim().length >= 40);
+}
+
+// --- 캐시
+function loadPdfIndex() {
+  try { return JSON.parse(localStorage.getItem(PDF_INDEX_KEY)) || []; } catch { return []; }
+}
+function loadPdfDoc(hash) {
+  try { return JSON.parse(localStorage.getItem(PDF_DOC_PREFIX + hash)); } catch { return null; }
+}
+function savePdfDoc(hash, doc) {
+  const index = loadPdfIndex().filter(d => d.hash !== hash);
+  index.unshift({ hash, name: doc.name, createdAt: doc.createdAt, total: doc.chunks.length });
+  while (index.length > PDF_MAX_DOCS) localStorage.removeItem(PDF_DOC_PREFIX + index.pop().hash);
+  try {
+    localStorage.setItem(PDF_DOC_PREFIX + hash, JSON.stringify(doc));
+    localStorage.setItem(PDF_INDEX_KEY, JSON.stringify(index));
+  } catch (e) {
+    console.warn('PDF cache save failed:', e);
+    setPdfStatus('⚠️ 저장 공간이 부족해 분석 결과를 저장하지 못했어요. 최근 PDF 목록에서 오래된 항목을 지워 주세요.', true);
+  }
+}
+function deletePdfDoc(hash) {
+  localStorage.removeItem(PDF_DOC_PREFIX + hash);
+  localStorage.setItem(PDF_INDEX_KEY, JSON.stringify(loadPdfIndex().filter(d => d.hash !== hash)));
+}
+
+function renderPdfRecent() {
+  const index = loadPdfIndex();
+  if (!index.length) { pdfRecent.innerHTML = ''; return; }
+  pdfRecent.innerHTML = '<div class="pdf-recent-label">🕘 최근 PDF</div>' + index.map(d => {
+    const date = new Date(d.createdAt).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+    return `<div class="pdf-recent-item" data-hash="${d.hash}">
+      <button class="pdf-recent-open" data-hash="${d.hash}">📄 ${escapeHtml(d.name)} <span class="pdf-recent-meta">${date} · ${d.total}구간</span></button>
+      <button class="pdf-recent-del" data-hash="${d.hash}" title="목록에서 지우기">✕</button>
+    </div>`;
+  }).join('');
+}
+
+pdfRecent.addEventListener('click', (e) => {
+  const del = e.target.closest('.pdf-recent-del');
+  if (del) { deletePdfDoc(del.dataset.hash); renderPdfRecent(); return; }
+  const open = e.target.closest('.pdf-recent-open');
+  if (open) {
+    const doc = loadPdfDoc(open.dataset.hash);
+    if (doc) runPdfWorksheet(open.dataset.hash, doc);
+    else { deletePdfDoc(open.dataset.hash); renderPdfRecent(); }
+  }
+});
+
+// --- 렌더링
+function highlightPassage(text, vocab) {
+  const words = (vocab || []).map(v => v.word).filter(w => w && w.length > 1)
+    .sort((a, b) => b.length - a.length)
+    .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (!words.length) return escapeHtml(text);
+  const meaningOf = Object.fromEntries((vocab || []).map(v => [v.word.toLowerCase(), v.meaning]));
+  const re = new RegExp(`\\b(${words.join('|')})\\b`, 'gi');
+  let html = '';
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    html += escapeHtml(text.slice(last, m.index));
+    html += `<mark class="pdf-key" title="${escapeAttr(meaningOf[m[0].toLowerCase()] || '')}">${escapeHtml(m[0])}</mark>`;
+    last = m.index + m[0].length;
+  }
+  return html + escapeHtml(text.slice(last));
+}
+
+function renderPdfSection(el, index, total, chunk, result) {
+  if (!result) {
+    el.innerHTML = `<div class="pdf-section-head">구간 ${index + 1} / ${total}</div><div class="pdf-section-msg error">⚠️ 이 구간은 분석하지 못했어요. PDF를 다시 열면 이 구간만 다시 시도해요.</div>`;
+    return;
+  }
+  const vocab = Array.isArray(result.keyVocabulary) ? result.keyVocabulary : [];
+  const blanks = Array.isArray(result.blanks) ? result.blanks : [];
+  const shadow = result.shadowing?.text ? result.shadowing : null;
+
+  let html = `<div class="pdf-section-head">구간 ${index + 1} / ${total}</div>`;
+  if (result.summaryKo) html += `<div class="pdf-summary">📝 ${escapeHtml(result.summaryKo)}</div>`;
+  html += `<details class="pdf-passage"><summary>📖 지문 보기 (핵심 단어 표시)</summary><div class="pdf-passage-text">${highlightPassage(chunk, vocab)}</div></details>`;
+
+  if (vocab.length) {
+    html += `<div class="pdf-block"><div class="pdf-block-title">📚 핵심 단어</div>` + vocab.map((v, i) => {
+      const saved = isWordSaved(v.word);
+      return `<div class="pdf-vocab-row">
+        <span class="pdf-vocab-word">${escapeHtml(v.word)}</span>
+        <span class="pdf-vocab-meaning">${escapeHtml(v.meaning || '')}</span>
+        <button class="rp-tool" data-action="speak-word" data-i="${i}">🔊</button>
+        <button class="pdf-save-btn${saved ? ' saved' : ''}" data-i="${i}" ${saved ? 'disabled' : ''}>${saved ? '✅ 저장됨' : '⭐ 단어장'}</button>
+      </div>`;
+    }).join('') + `</div>`;
+  }
+
+  if (blanks.length) {
+    html += `<div class="pdf-block"><div class="pdf-block-title">✏️ 빈칸 채우기</div>` + blanks.map((b, i) => {
+      let sentence = String(b.sentence || '');
+      const answer = String(b.answer || '');
+      const input = `<input type="text" class="dictation-input pdf-blank" data-answer="${escapeAttr(answer)}" placeholder="${escapeAttr(b.hint || '')}" style="width:${Math.max(answer.length * 11, 90)}px">`;
+      let body;
+      if (/_{2,}/.test(sentence)) {
+        const [before, ...rest] = sentence.split(/_{2,}/);
+        body = escapeHtml(before) + input + escapeHtml(rest.join('____'));
+      } else {
+        const pos = answer ? sentence.toLowerCase().indexOf(answer.toLowerCase()) : -1;
+        body = pos >= 0 ? escapeHtml(sentence.slice(0, pos)) + input + escapeHtml(sentence.slice(pos + answer.length)) : escapeHtml(sentence) + ' ' + input;
+      }
+      return `<div class="pdf-blank-row">${i + 1}. ${body}</div>`;
+    }).join('') + `<button class="audio-btn pdf-check-btn">정답 확인하기</button></div>`;
+  }
+
+  if (shadow) {
+    html += `<div class="pdf-block"><div class="pdf-block-title">🎙️ 쉐도잉</div>
+      <div class="pdf-shadow-text">${escapeHtml(shadow.text)}</div>
+      ${shadow.ko ? `<div class="pdf-shadow-ko">${escapeHtml(shadow.ko)}</div>` : ''}
+      <div class="pdf-shadow-actions">
+        <button class="audio-btn" data-action="speak-shadow">🔊 듣기</button>
+        <button class="audio-btn pdf-shadow-mic" data-action="record">🎤 따라 읽기</button>
+      </div>
+      <div class="pdf-shadow-result"></div>
+    </div>`;
+  }
+  el.innerHTML = html;
+  el.querySelectorAll('.pdf-passage-text, .pdf-shadow-text').forEach(n => makeTextClickable(n));
+
+  el.querySelectorAll('[data-action="speak-word"]').forEach(btn => btn.addEventListener('click', () => speak(vocab[btn.dataset.i].word)));
+  el.querySelectorAll('.pdf-save-btn').forEach(btn => btn.addEventListener('click', () => {
+    const v = vocab[btn.dataset.i];
+    if (saveWord({ word: v.word, meanings: [{ partOfSpeech: '뜻', definitions: [v.meaning || ''] }] })) {
+      btn.textContent = '✅ 저장됨'; btn.classList.add('saved'); btn.disabled = true;
+      updateVocabStats();
+    }
+  }));
+  const checkBtn = el.querySelector('.pdf-check-btn');
+  if (checkBtn) checkBtn.addEventListener('click', () => {
+    let allCorrect = true;
+    el.querySelectorAll('.pdf-blank').forEach(input => {
+      const answer = input.dataset.answer;
+      const ok = input.value.trim().toLowerCase() === answer.trim().toLowerCase();
+      input.style.borderBottomColor = ok ? 'var(--success-1)' : 'var(--error)';
+      input.style.color = ok ? 'var(--success-1)' : 'var(--error)';
+      if (!ok) { input.value = answer; allCorrect = false; }
+    });
+    checkBtn.textContent = allCorrect ? '완벽해요! 🎉' : '틀린 칸에 정답을 채워 뒀어요';
+  });
+  if (shadow) {
+    el.querySelector('[data-action="speak-shadow"]').addEventListener('click', () => speak(shadow.text));
+    const micBtn = el.querySelector('[data-action="record"]');
+    const resultEl = el.querySelector('.pdf-shadow-result');
+    if (!pdfSpeech.isSupported) micBtn.style.display = 'none';
+    micBtn.addEventListener('click', () => {
+      if (pdfSpeech.isListening) { pdfSpeech.stop(); return; }
+      pdfShadowTarget = { text: shadow.text, resultEl, btn: micBtn };
+      window.speechSynthesis?.cancel();
+      pdfSpeech.start();
+    });
+  }
+}
+
+pdfSpeech.onStart = () => {
+  if (!pdfShadowTarget) return;
+  pdfShadowTarget.btn.classList.add('recording');
+  pdfShadowTarget.btn.textContent = '⏹️ 다 읽었어요';
+  pdfShadowTarget.resultEl.innerHTML = '<div class="pdf-section-msg">🔴 듣고 있어요... 문장을 소리 내어 읽어 주세요</div>';
+};
+pdfSpeech.onInterim = (text) => {
+  if (pdfShadowTarget) pdfShadowTarget.resultEl.innerHTML = `<div class="pdf-section-msg">🎙️ ${escapeHtml(text)}</div>`;
+};
+pdfSpeech.onEnd = () => {
+  if (!pdfShadowTarget) return;
+  pdfShadowTarget.btn.classList.remove('recording');
+  pdfShadowTarget.btn.textContent = '🎤 따라 읽기';
+};
+pdfSpeech.onError = (error) => {
+  if (!pdfShadowTarget) return;
+  pdfShadowTarget.btn.classList.remove('recording');
+  pdfShadowTarget.btn.textContent = '🎤 따라 읽기';
+  pdfShadowTarget.resultEl.innerHTML = `<div class="pdf-section-msg error">${error === 'not-allowed' ? '⚠️ 마이크 권한이 필요합니다.' : '⚠️ 음성이 인식되지 않았어요. 다시 시도해 주세요.'}</div>`;
+};
+pdfSpeech.onResult = async (text) => {
+  const target = pdfShadowTarget;
+  if (!target) return;
+  await renderShadowingFeedback(target.resultEl, target.text, text);
+};
+
+// 쉐도잉 결과: AI 발음 평가 (Phase 2.3에서 단어별 색 표시로 확장)
+async function renderShadowingFeedback(container, target, recognized) {
+  container.innerHTML = `<div class="pdf-section-msg">🎙️ ${escapeHtml(recognized)}<br>⏳ 발음을 분석하고 있어요...</div>`;
+  try {
+    const r = await callGemini('pronunciation', { target, recognized });
+    let html = `<div class="pdf-shadow-score">🎯 ${escapeHtml(String(r.score ?? '-'))}점</div>`;
+    html += `<div class="pdf-section-msg">🎙️ ${escapeHtml(r.recognized || recognized)}</div>`;
+    if (r.problematicWords?.length) html += `<div class="pdf-section-msg">⚠️ ${r.problematicWords.map(w => `<span class="pdf-problem">${escapeHtml(w)}</span>`).join(' ')}</div>`;
+    if (r.tips) html += `<div class="pdf-section-msg">🗣️ ${escapeHtml(r.tips)}</div>`;
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = `<div class="pdf-section-msg error">⚠️ 평가 실패: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// --- 분석 실행
+async function runPdfWorksheet(hash, doc) {
+  const runId = ++pdfRunId;
+  const total = doc.chunks.length;
+  pdfOutput.style.display = 'block';
+  pdfOutput.innerHTML = `<div class="pdf-doc-title">📄 ${escapeHtml(doc.name)}${doc.truncated ? ' <span class="pdf-recent-meta">(앞부분만 분석)</span>' : ''}</div>`;
+  const sectionEls = doc.chunks.map((chunk, i) => {
+    const el = document.createElement('div');
+    el.className = 'pdf-section';
+    pdfOutput.appendChild(el);
+    if (doc.sections[i]) renderPdfSection(el, i, total, chunk, doc.sections[i]);
+    else el.innerHTML = `<div class="pdf-section-head">구간 ${i + 1} / ${total}</div><div class="pdf-section-msg">⏳ 분석 대기 중...</div>`;
+    return el;
+  });
+  renderPdfRecent();
+
+  const pending = doc.chunks.map((_, i) => i).filter(i => !doc.sections[i]);
+  if (!pending.length) { setPdfStatus(`✅ 저장된 분석 결과를 불러왔어요 (${total}구간).`); return; }
+
+  let failed = 0;
+  for (const [n, i] of pending.entries()) {
+    if (runId !== pdfRunId) return; // 다른 PDF를 열었으면 중단
+    setPdfStatus(`🔍 AI가 분석하고 있어요... (${n + 1}/${pending.length})`);
+    sectionEls[i].querySelector('.pdf-section-msg').textContent = '🔍 분석 중...';
+    try {
+      const result = await callGemini('pdf_worksheet', { text: doc.chunks[i] });
+      if (runId !== pdfRunId) return;
+      doc.sections[i] = result;
+      savePdfDoc(hash, doc);
+      renderPdfSection(sectionEls[i], i, total, doc.chunks[i], result);
+    } catch (e) {
+      console.warn('PDF section failed:', e);
+      failed++;
+      renderPdfSection(sectionEls[i], i, total, doc.chunks[i], null);
+    }
+    if (n < pending.length - 1) await new Promise(r => setTimeout(r, PDF_REQUEST_GAP_MS));
+  }
+  if (runId === pdfRunId) {
+    setPdfStatus(failed ? `⚠️ ${failed}개 구간은 분석하지 못했어요. 최근 PDF에서 다시 열면 그 구간만 다시 시도해요.` : `✅ 분석 완료! (${total}구간)`, failed > 0);
+  }
+}
+
+async function handlePdfFile(file) {
+  if (!file) return;
+  if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+    setPdfStatus('⚠️ PDF 파일만 올릴 수 있어요.', true); return;
+  }
+  if (file.size > PDF_MAX_FILE_MB * 1024 * 1024) {
+    setPdfStatus(`⚠️ ${PDF_MAX_FILE_MB}MB 이하의 PDF만 올릴 수 있어요.`, true); return;
+  }
+  try {
+    setPdfStatus('📖 PDF를 읽고 있어요...');
+    const buf = await file.arrayBuffer();
+    const hash = await hashArrayBuffer(buf);
+    const cached = loadPdfDoc(hash);
+    if (cached) { runPdfWorksheet(hash, cached); return; }
+
+    const { text } = await extractPdfText(buf);
+    let chunks = splitPdfText(text);
+    if (!chunks.length) {
+      setPdfStatus('⚠️ PDF에서 글자를 찾지 못했어요. 스캔한 이미지 PDF는 지원하지 않아요.', true); return;
+    }
+    const truncated = chunks.length > PDF_MAX_CHUNKS;
+    chunks = chunks.slice(0, PDF_MAX_CHUNKS);
+    const doc = { name: file.name, createdAt: new Date().toISOString(), truncated, chunks, sections: chunks.map(() => null) };
+    savePdfDoc(hash, doc);
+    runPdfWorksheet(hash, doc);
+  } catch (e) {
+    console.error(e);
+    setPdfStatus(`⚠️ PDF를 읽지 못했어요: ${e.message}`, true);
+  } finally {
+    pdfFileInput.value = '';
+  }
+}
+
+pdfFileInput.addEventListener('change', () => handlePdfFile(pdfFileInput.files[0]));
+['dragenter', 'dragover'].forEach(ev => pdfDrop.addEventListener(ev, (e) => { e.preventDefault(); pdfDrop.classList.add('dragging'); }));
+['dragleave', 'drop'].forEach(ev => pdfDrop.addEventListener(ev, (e) => { e.preventDefault(); pdfDrop.classList.remove('dragging'); }));
+pdfDrop.addEventListener('drop', (e) => handlePdfFile(e.dataTransfer.files[0]));
+renderPdfRecent();
