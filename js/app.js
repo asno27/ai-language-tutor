@@ -1,6 +1,7 @@
 ﻿import { callGemini, lookupDictionary, fetchYoutubeTranscript, getGeminiApiKey } from './api.js';
 import { SpeechManager, speak } from './speech.js';
 import { pickDailyScenes, ROLEPLAY_SCENARIOS } from './prompts.js';
+import { compareWords } from './shadowing.js';
 import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount } from './vocabulary.js';
 
 // TTS 함수를 전역으로 노출 (innerHTML onclick에서 사용)
@@ -411,18 +412,6 @@ async function handleDictionarySubmit() {
 dictionarySubmit.addEventListener('click', handleDictionarySubmit);
 dictionaryInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleDictionarySubmit(); });
 
-// === PRONUNCIATION ===
-function renderPronunciationResult(data) {
-  let html = `<div class="result-section fade-in"><div class="result-label recognized">🎙️ 인식된 문장</div><div class="result-text highlight">${escapeHtml(data.recognized)}</div></div>`;
-  if (data.problematicWords?.length) {
-    html += `<div class="result-section fade-in"><div class="result-label warning">⚠️ 주의해야 할 발음</div><div class="result-text">${data.problematicWords.map(w => `<span style="background:rgba(255,107,107,0.15);color:var(--error);padding:2px 8px;border-radius:4px;margin-right:6px">${escapeHtml(w)}</span>`).join(' ')}</div></div>`;
-  }
-  if (data.tips) html += `<div class="result-section fade-in"><div class="result-label tip">🗣️ 발음 팁</div><div class="result-text">${escapeHtml(data.tips)}</div></div>`;
-  html += `<div class="result-section fade-in"><div class="result-label overall">👏 총평 ${data.score !== undefined ? `<span style="background:linear-gradient(135deg,var(--accent-1),var(--accent-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:1.1rem;margin-left:8px">${data.score}점</span>` : ''}</div><div class="result-text">${escapeHtml(data.overallComment)}</div></div>`;
-  pronunciationOutput.innerHTML = html;
-  makeTextClickable(pronunciationOutput);
-}
-
 // === VOCABULARY ===
 function updateVocabStats() {
   vocabTotal.textContent = getTotalCount();
@@ -738,23 +727,7 @@ dailySpeech.onResult = async (text) => {
   dailySttResult.style.display = 'block';
   dailySttText.textContent = text;
   if (!currentDailySentence) return;
-  showLoading();
-  try {
-    const result = await callGemini('pronunciation', { target: currentDailySentence.sentence, recognized: text });
-    let html = '';
-    // Score badge
-    const scoreClass = result.score >= 80 ? 'good' : result.score >= 50 ? 'ok' : 'needs-work';
-    html += `<div class="result-section fade-in" style="text-align:center"><div class="daily-score ${scoreClass}">🎯 ${result.score}점</div></div>`;
-    html += `<div class="result-section fade-in"><div class="result-label recognized">🎙️ 인식된 문장</div><div class="result-text highlight">${escapeHtml(result.recognized)}</div></div>`;
-    if (result.problematicWords?.length) {
-      html += `<div class="result-section fade-in"><div class="result-label warning">⚠️ 주의할 발음</div><div class="result-text">${result.problematicWords.map(w => `<span style="background:rgba(255,107,107,0.15);color:var(--error);padding:2px 8px;border-radius:4px;margin-right:6px">${escapeHtml(w)}</span>`).join(' ')}</div></div>`;
-    }
-    if (result.tips) html += `<div class="result-section fade-in"><div class="result-label tip">🗣️ 발음 팁</div><div class="result-text">${escapeHtml(result.tips)}</div></div>`;
-    if (result.overallComment) html += `<div class="result-section fade-in"><div class="result-label overall">👏 총평</div><div class="result-text">${escapeHtml(result.overallComment)}</div></div>`;
-    dailyOutput.innerHTML = html;
-  makeTextClickable(dailyOutput);
-  } catch (e) { showError(dailyOutput, e.message); }
-  finally { hideLoading(); }
+  renderShadowingFeedback(dailyOutput, currentDailySentence.sentence, text);
 };
 
 dailyMicBtn.addEventListener('click', () => {
@@ -981,22 +954,7 @@ if (worksheetSelect) {
     if (!text) return;
     worksheetSttResult.style.display = 'block';
     worksheetSttText.textContent = text;
-    
-    worksheetOutput.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">⏳</span><p>AI가 발음과 유창성을 분석하고 있습니다...</p></div>`;
-    try {
-      const result = await callGemini('pronunciation', { recognized: text, target: currentWorksheet.shadowing.text });
-      
-      let html = `<div class="result-section fade-in"><div class="result-label recognized">🎯 당신의 낭독</div><div class="result-text highlight">${escapeHtml(result.recognized || text)}</div></div>`;
-      if (result.problematicWords?.length) {
-        html += `<div class="result-section fade-in"><div class="result-label warning">⚠️ 주의해야 할 단어</div><div class="result-text">${result.problematicWords.map(w => `<span style="background:rgba(255,107,107,0.15);color:var(--error);padding:2px 8px;border-radius:4px;margin-right:6px">${escapeHtml(w)}</span>`).join(' ')}</div></div>`;
-      }
-      if (result.tips) html += `<div class="result-section fade-in"><div class="result-label tip">💡 발음/유창성 팁</div><div class="result-text">${escapeHtml(result.tips)}</div></div>`;
-      if (result.overallComment) html += `<div class="result-section fade-in"><div class="result-label overall">평가 점수 ${result.score !== undefined ? `<span style="background:linear-gradient(135deg,var(--accent-1),var(--accent-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:1.1rem;margin-left:8px">${result.score}점</span>` : ''}</div><div class="result-text">${escapeHtml(result.overallComment)}</div></div>`;
-      worksheetOutput.innerHTML = html;
-      makeTextClickable(worksheetOutput);
-    } catch (e) {
-      showError(worksheetOutput, e.message);
-    }
+    renderShadowingFeedback(worksheetOutput, currentWorksheet.shadowing.text, text);
   };
 
   worksheetMicBtn.addEventListener('click', () => {
@@ -1121,10 +1079,7 @@ speech.onResult = async (text) => {
   sttResult.style.display = 'block'; sttText.textContent = text;
   const target = pronunciationTarget.value.trim();
   if (!target) { showError(pronunciationOutput, '목표 문장을 먼저 입력해 주세요.'); return; }
-  showLoading();
-  try { renderPronunciationResult(await callGemini('pronunciation', { target, recognized: text })); }
-  catch (e) { showError(pronunciationOutput, e.message); }
-  finally { hideLoading(); }
+  renderShadowingFeedback(pronunciationOutput, target, text);
 };
 micBtn.addEventListener('click', () => {
   if (!pronunciationTarget.value.trim()) {
@@ -1697,22 +1652,54 @@ pdfSpeech.onError = (error) => {
 pdfSpeech.onResult = async (text) => {
   const target = pdfShadowTarget;
   if (!target) return;
-  await renderShadowingFeedback(target.resultEl, target.text, text);
+  renderShadowingFeedback(target.resultEl, target.text, text);
 };
 
-// 쉐도잉 결과: AI 발음 평가 (Phase 2.3에서 단어별 색 표시로 확장)
-async function renderShadowingFeedback(container, target, recognized) {
-  container.innerHTML = `<div class="pdf-section-msg">🎙️ ${escapeHtml(recognized)}<br>⏳ 발음을 분석하고 있어요...</div>`;
-  try {
-    const r = await callGemini('pronunciation', { target, recognized });
-    let html = `<div class="pdf-shadow-score">🎯 ${escapeHtml(String(r.score ?? '-'))}점</div>`;
-    html += `<div class="pdf-section-msg">🎙️ ${escapeHtml(r.recognized || recognized)}</div>`;
-    if (r.problematicWords?.length) html += `<div class="pdf-section-msg">⚠️ ${r.problematicWords.map(w => `<span class="pdf-problem">${escapeHtml(w)}</span>`).join(' ')}</div>`;
-    if (r.tips) html += `<div class="pdf-section-msg">🗣️ ${escapeHtml(r.tips)}</div>`;
-    container.innerHTML = html;
-  } catch (e) {
-    container.innerHTML = `<div class="pdf-section-msg error">⚠️ 평가 실패: ${escapeHtml(e.message)}</div>`;
-  }
+// === 쉐도잉 결과 (Phase 2.3) — 발음 탭 / 오늘의 영어 / 학습지 / PDF 공통 ===
+// 브라우저에서 바로 단어별 채점(API 호출 없음) → 원하면 [AI 발음 팁]으로 자세한 조언
+const SHADOW_LABELS = { correct: '정확', close: '비슷함', wrong: '틀림', missed: '빠짐' };
+
+function renderShadowingFeedback(container, target, recognized) {
+  const { words, extra, score } = compareWords(target, recognized);
+  const count = (st) => words.filter(w => w.status === st).length;
+  const grade = score >= 90 ? 'good' : score >= 60 ? 'ok' : 'needs-work';
+  const wordsHtml = words.map(w => {
+    const tip = w.status === 'wrong' || w.status === 'close' ? `들린 말: ${w.heard}` : w.status === 'missed' ? '인식되지 않음' : '';
+    const clickable = w.status !== 'correct' ? ' data-speak="1"' : '';
+    return `<span class="sh-word ${w.status}"${clickable} title="${escapeHtml(tip).replace(/"/g, '&quot;')}">${escapeHtml(w.text)}</span>`;
+  }).join(' ');
+
+  container.innerHTML = `
+    <div class="sh-result fade-in">
+      <div class="sh-score ${grade}">🎯 ${score}점</div>
+      <div class="sh-counts">정확 ${count('correct')} · 비슷함 ${count('close')} · 틀림 ${count('wrong')} · 빠짐 ${count('missed')}</div>
+      <div class="sh-words">${wordsHtml}</div>
+      <div class="sh-legend"><span class="sh-dot correct"></span>정확 <span class="sh-dot close"></span>비슷함 <span class="sh-dot wrong"></span>틀림·빠짐 · 색이 있는 단어를 누르면 원어민 발음을 들려줘요</div>
+      ${words.some(w => w.status === 'wrong' || w.status === 'close') ? `<div class="sh-detail">${words.filter(w => w.status === 'wrong' || w.status === 'close').map(w => `<span><b>${escapeHtml(w.text)}</b> → ${escapeHtml(w.heard)}</span>`).join('')}</div>` : ''}
+      ${extra.length ? `<div class="sh-extra">➕ 원문에 없는 말: ${escapeHtml(extra.join(' '))}</div>` : ''}
+      <div class="sh-heard">🎙️ 인식된 문장: ${escapeHtml(recognized)}</div>
+      <button class="audio-btn sh-ai-btn">💡 AI 발음 팁 받기</button>
+      <div class="sh-ai"></div>
+    </div>`;
+
+  container.querySelectorAll('.sh-word[data-speak]').forEach(el => el.addEventListener('click', () => speak(el.textContent.replace(/^[^\w']+|[^\w']+$/g, ''))));
+  const aiBtn = container.querySelector('.sh-ai-btn');
+  const aiBox = container.querySelector('.sh-ai');
+  aiBtn.addEventListener('click', async () => {
+    aiBtn.disabled = true;
+    aiBox.innerHTML = '<div class="sh-heard">⏳ AI가 발음을 분석하고 있어요...</div>';
+    try {
+      const r = await callGemini('pronunciation', { target, recognized });
+      let html = '';
+      if (r.tips) html += `<div class="result-section fade-in"><div class="result-label tip">🗣️ 발음 팁</div><div class="result-text">${escapeHtml(r.tips)}</div></div>`;
+      if (r.overallComment) html += `<div class="result-section fade-in"><div class="result-label overall">👏 총평</div><div class="result-text">${escapeHtml(r.overallComment)}</div></div>`;
+      aiBox.innerHTML = html || '<div class="sh-heard">추가 조언이 없어요. 잘하셨어요!</div>';
+      aiBtn.style.display = 'none';
+    } catch (e) {
+      aiBox.innerHTML = `<div class="sh-heard" style="color:var(--error)">⚠️ AI 분석 실패: ${escapeHtml(e.message)}</div>`;
+      aiBtn.disabled = false;
+    }
+  });
 }
 
 // --- 분석 실행

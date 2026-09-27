@@ -1442,3 +1442,26 @@ body::after {
   padding: 1px 8px;
   border-radius: 4px;
 }
+
+/* === Shadowing word-level feedback (Phase 2.3) === */
+.sh-result { display: flex; flex-direction: column; gap: 10px; }
+.sh-score { font-size: 1.6rem; font-weight: 800; color: var(--text-heading); }
+.sh-score.good { color: var(--success-1); }
+.sh-score.ok { color: var(--warning-2); }
+.sh-score.needs-work { color: var(--error); }
+.sh-counts { font-size: 0.85rem; color: rgba(255, 255, 255, 0.6); margin-top: -6px; }
+.sh-words { font-size: 1.15rem; line-height: 2; }
+.sh-word { padding: 2px 4px; border-radius: 6px; }
+.sh-word.correct { color: var(--success-1); }
+.sh-word.close { color: var(--warning-2); background: rgba(255, 210, 0, 0.12); cursor: pointer; }
+.sh-word.wrong { color: var(--error); background: rgba(255, 107, 107, 0.15); cursor: pointer; }
+.sh-word.missed { color: var(--error); text-decoration: line-through; opacity: 0.85; cursor: pointer; }
+.sh-legend { font-size: 0.78rem; color: rgba(255, 255, 255, 0.55); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.sh-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-left: 6px; }
+.sh-dot.correct { background: var(--success-1); }
+.sh-dot.close { background: var(--warning-2); }
+.sh-dot.wrong { background: var(--error); }
+.sh-detail { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.88rem; color: var(--text-body); }
+.sh-detail b { color: var(--text-heading); }
+.sh-extra, .sh-heard { font-size: 0.88rem; color: rgba(255, 255, 255, 0.65); }
+.sh-ai-btn { align-self: flex-start; }
