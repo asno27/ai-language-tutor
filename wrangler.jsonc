@@ -8,6 +8,12 @@
   "assets": {
     "directory": "./"
   },
+  // AI 요청(/api/llm)은 미국 구글 클라우드 근처에서 실행.
+  // 한국 요청은 기본적으로 홍콩(HKG) 서버에서 처리되는데, Gemini API는 홍콩에서 "User location is not supported"로 거부됨.
+  // (정적 파일은 영향 없이 가장 가까운 서버에서 제공)
+  "placement": {
+    "region": "gcp:us-central1"
+  },
   // 대시보드에서 추가한 텍스트 변수(GEMINI_MODEL 등)가 배포할 때 지워지지 않도록 유지
   "keep_vars": true
 }

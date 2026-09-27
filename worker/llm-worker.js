@@ -6,10 +6,16 @@
 //
 // 환경변수 (Cloudflare 대시보드 → Worker → Settings → Variables and Secrets):
 //   GEMINI_API_KEY (Secret), GROQ_API_KEY (Secret)
-//   GEMINI_MODEL, GROQ_MODEL (Text, 선택 — 모델이 단종되면 여기서만 바꾸면 됨)
+//   GEMINI_MODEL, GROQ_MODEL (Text, 선택 — 모델이 단종되면 여기서만 바꾸면 됨. Groq는 아래 목록도 자동으로 차례대로 시도)
 
 const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
-const DEFAULT_GROQ_MODEL = 'llama-3.3-70b-versatile';
+// Groq는 모델이 자주 단종되므로 여러 개를 순서대로 시도 (GROQ_MODEL 환경변수가 있으면 가장 먼저 시도)
+const DEFAULT_GROQ_MODELS = [
+  'openai/gpt-oss-120b',
+  'llama-3.3-70b-versatile',
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+  'llama-3.1-8b-instant',
+];
 
 const ALLOWED_ORIGINS = [
   'https://asno27.github.io',
@@ -69,12 +75,12 @@ async function callGemini(env, systemPrompt, userMessage) {
   return extractJson(text);
 }
 
-async function callGroq(env, systemPrompt, userMessage) {
+async function callGroqModel(env, model, systemPrompt, userMessage) {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.GROQ_API_KEY}` },
     body: JSON.stringify({
-      model: env.GROQ_MODEL || DEFAULT_GROQ_MODEL,
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
@@ -82,9 +88,22 @@ async function callGroq(env, systemPrompt, userMessage) {
       response_format: { type: 'json_object' },
     }),
   });
-  if (!res.ok) throw new Error(`Groq ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) throw new Error(`Groq ${model} ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
   return extractJson(data.choices?.[0]?.message?.content || '');
+}
+
+async function callGroq(env, systemPrompt, userMessage) {
+  const models = [...new Set([env.GROQ_MODEL, ...DEFAULT_GROQ_MODELS].filter(Boolean))];
+  const errors = [];
+  for (const model of models) {
+    try {
+      return { model, data: await callGroqModel(env, model, systemPrompt, userMessage) };
+    } catch (e) {
+      errors.push(String(e.message || e));
+    }
+  }
+  throw new Error(errors.join(' / '));
 }
 
 export default {
@@ -133,7 +152,8 @@ export default {
     // 2순위: Groq
     if (env.GROQ_API_KEY) {
       try {
-        return json({ success: true, data: await callGroq(env, systemPrompt, userMessage), source: 'groq' }, 200, cors);
+        const { model, data } = await callGroq(env, systemPrompt, userMessage);
+        return json({ success: true, data, source: 'groq', model }, 200, cors);
       } catch (e) {
         errors.push(String(e.message || e));
       }
