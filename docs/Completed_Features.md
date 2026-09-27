@@ -47,3 +47,10 @@
 ## 12. 🧠 AI 듀얼 코어 번역 시스템 (Gemini + Groq Fallback)
 - 구글 Gemini API의 서버 마비(503 에러) 등 잦은 접속 불안정에 대비하여 번역 관제탑을 로컬 PC로 옮겼습니다.
 - Gemini 서버가 뻗을 경우, 즉시 메타의 `llama-3.1-70b-versatile` (Groq API) 모델로 스위칭하여 에러 없이 무중단 번역 결과를 앱에 제공합니다.
+
+## 13. 🔀 백엔드 기능별 분리 — PC 없이 24시간 AI 기능 (Phase 1.9, 2026-09-27)
+- 번역·교정·사전·오늘의 영어 등 AI 텍스트 기능(`/api/llm`)을 Cloudflare Worker로 이전. **PC가 꺼져 있어도 동작.**
+- 사이트 주소: `https://ai-language-tutor.kaipromp.workers.dev` (GitHub `asno27/ai-language-tutor`에 push하면 자동 배포)
+- Gemini 1순위 → Groq 2순위(여러 모델 순차 시도). API 키는 Cloudflare Secret에 저장.
+- 한국 요청이 홍콩 서버에서 처리되어 Gemini가 거부하던 문제를 Placement(`gcp:us-central1`) 설정으로 해결.
+- 유튜브 자막(`/api/youtube`)만 PC + ngrok에 남김. PC가 꺼져 있으면 "PC 서버를 켜 주세요" 안내.
