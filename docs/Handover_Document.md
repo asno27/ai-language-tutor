@@ -14,10 +14,10 @@
   - **네트워크**: Ngrok 정적 도메인을 사용하여 Localhost(8000)를 외부 인터넷에 노출 (`https://overexert-swiftly-endeared.ngrok-free.dev`)
   - **역할**: YouTube 봇 차단(IP 밴) 회피 및 대용량 오디오 다운로드 처리, AI API(Gemini, Groq) 듀얼 코어 로드밸런싱.
 
-- **🔀 기능별 백엔드 분리 (Phase 1.9, 2026-09-27 코드 작성 / Cloudflare 배포 대기)**:
+- **🔀 기능별 백엔드 분리 (Phase 1.9, 2026-09-27)**: Cloudflare Worker `ai-language-tutor`가 GitHub `asno27/ai-language-tutor`에 연결되어 push 시 자동 배포 (`wrangler.jsonc`). 주소 `https://ai-language-tutor.kaipromp.workers.dev`.
   - AI 텍스트 기능(`/api/llm`)은 **Cloudflare Worker**(`worker/llm-worker.js`)로 이전 → PC가 꺼져 있어도 동작. 키는 Cloudflare Secret(`GEMINI_API_KEY`, `GROQ_API_KEY`)에 저장.
   - 유튜브(`/api/youtube`)만 PC + ngrok에 남음 (가정용 IP 필요).
-  - `js/api.js`: Worker → PC 서버 순서로 시도. `LLM_WORKER_URL`이 비어 있으면 PC 서버만 사용. 배포 후 이 값에 Worker 주소를 넣어야 전환 완료.
+  - `js/api.js`: Worker(`LLM_WORKER_URL`) → PC 서버 순서로 시도.
 
 ---
 

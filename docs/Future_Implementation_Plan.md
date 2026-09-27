@@ -35,18 +35,22 @@
    - AI 요청 순서: **① Cloudflare Worker → ② PC 서버(켜져 있으면 예비로 사용) → ③ 한국어 오류 안내.**
    - 동작하지 않는 브라우저 직접 호출 경로(`'dummy'` 키) 삭제.
    - 유튜브 요청 실패 시 `Failed to fetch` 대신 "유튜브 기능은 PC 서버가 켜져 있어야 합니다" 안내.
-   - Worker 주소(`LLM_WORKER_URL`)가 비어 있으면 기존처럼 PC 서버만 사용 → Worker 배포 전에 프론트를 먼저 배포해도 기존 동작이 깨지지 않음.
+   - Worker 주소(`LLM_WORKER_URL`)가 비어 있거나 Worker가 실패하면 PC 서버로 넘어감 → Worker에 키가 등록되기 전에도 기존 동작이 깨지지 않음.
 3. **`server/main.py`는 수정하지 않음**: PC 서버의 `/api/llm`은 예비 경로로 계속 남겨 둠.
 
+### 배포 방식 (2026-09-27 확정)
+- Cloudflare Worker `ai-language-tutor`가 GitHub 저장소 `asno27/ai-language-tutor`(main 브랜치)에 연결되어 있음. **저장소에 push하면 Cloudflare가 자동으로 `npx wrangler deploy` 실행.**
+- 저장소 루트의 `wrangler.jsonc`가 배포 설정: 정적 파일(index.html, css, js, data)은 사이트로 제공하고, 정적 파일에 없는 요청(`/api/llm`)은 `worker/llm-worker.js`가 처리.
+- `.assetsignore`로 `docs/`, `worker/`, `server/`, `*.py` 등은 사이트 파일에서 제외.
+- 주소: `https://ai-language-tutor.kaipromp.workers.dev` (사이트) / `.../api/llm` (AI 서버). `js/api.js`의 `LLM_WORKER_URL`에 설정됨.
+
 ### 사용자가 직접 해야 하는 작업 (계정·키 관련이라 AI가 대신할 수 없음)
-1. [Cloudflare](https://dash.cloudflare.com/sign-up) 무료 가입.
-2. 대시보드 → **Workers & Pages** → **Create** → "Hello World" 템플릿으로 Worker 생성 (이름 예: `ai-tutor-llm`) → **Deploy**.
-3. **Edit code** → 기본 코드를 전부 지우고 `worker/llm-worker.js` 내용을 붙여넣기 → **Deploy**.
-4. Worker의 **Settings → Variables and Secrets**에서 추가:
-   - `GEMINI_API_KEY` (타입: Secret)
-   - `GROQ_API_KEY` (타입: Secret)
-   - (선택) `GEMINI_MODEL`, `GROQ_MODEL` (타입: Text)
-5. 생성된 주소(`https://ai-tutor-llm.<내-서브도메인>.workers.dev`)를 AI에게 알려주면 `js/api.js`의 `LLM_WORKER_URL`에 넣고 `python push_to_github.py`로 배포.
+1. `wrangler.jsonc`가 포함된 커밋이 배포된 뒤, Cloudflare 대시보드 → **Workers 및 Pages → ai-language-tutor → 설정 → 변수 및 비밀**에서 추가:
+   - `GEMINI_API_KEY` (유형: **비밀/Secret**)
+   - `GROQ_API_KEY` (유형: **비밀/Secret**)
+   - (선택) `GEMINI_MODEL`, `GROQ_MODEL` (유형: 텍스트)
+   - ※ 빌드 설정의 "변수 및 암호"가 아니라 **런타임 "변수 및 비밀"**에 넣어야 함.
+2. 등록 후 AI에게 "테스트해줘"라고 요청 → `/api/llm`에 실제 요청을 보내 확인.
 
 ### 완료 확인 기준
 - PC 서버를 끈 상태에서 GitHub Pages 사이트의 '오늘의 영어 추천', 번역, 사전이 정상 작동.

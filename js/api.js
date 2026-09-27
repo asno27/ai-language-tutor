@@ -29,8 +29,8 @@ export function getYoutubeApiUrl() {
 // === AI 텍스트 기능 백엔드 (Phase 1.9: 기능별 분리) ===
 // 1순위: Cloudflare Worker (PC가 꺼져 있어도 24시간 동작) — worker/llm-worker.js
 // 2순위: PC 서버 (ngrok) — 켜져 있을 때만 예비로 사용
-// Worker를 배포한 뒤 아래에 주소를 넣으세요. 비어 있으면 PC 서버만 사용합니다.
-const LLM_WORKER_URL = '';
+// 비워 두면 PC 서버만 사용합니다. (Cloudflare 대시보드: Workers 및 Pages → ai-language-tutor)
+const LLM_WORKER_URL = 'https://ai-language-tutor.kaipromp.workers.dev/api/llm';
 
 const PC_SERVER_URL = 'https://overexert-swiftly-endeared.ngrok-free.dev';
 

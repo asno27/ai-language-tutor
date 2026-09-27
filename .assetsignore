@@ -1,0 +1,12 @@
+# 사이트 파일로 공개하지 않을 항목 (Cloudflare 정적 자산 업로드에서 제외)
+.git
+.gitignore
+.assetsignore
+.claude
+wrangler.jsonc
+node_modules
+worker
+server
+docs
+*.py
+live_*.js
