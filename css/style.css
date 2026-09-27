@@ -1181,3 +1181,156 @@ body::after {
   color: rgba(255, 255, 255, 0.5);
   margin-bottom: 6px;
 }
+
+/* === Role-play (역할극) === */
+.roleplay-scenarios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+.roleplay-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  color: var(--text-body);
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+  text-align: left;
+}
+.roleplay-chip:hover { background: rgba(255, 255, 255, 0.12); }
+.roleplay-chip.active {
+  background: linear-gradient(135deg, var(--accent-primary-1), var(--accent-primary-2));
+  border-color: transparent;
+  color: #fff;
+}
+#roleplay-custom { margin-bottom: 1rem; }
+.roleplay-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  color: var(--text-body);
+  font-size: 0.9rem;
+}
+.roleplay-select {
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-body);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.roleplay-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.roleplay-chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0.8rem;
+}
+.roleplay-title { color: var(--text-heading); font-weight: 600; }
+.roleplay-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 4px 2px 8px;
+}
+.rp-msg { display: flex; flex-direction: column; max-width: 85%; }
+.rp-msg.ai { align-self: flex-start; }
+.rp-msg.user { align-self: flex-end; align-items: flex-end; }
+.rp-bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  line-height: 1.5;
+  color: var(--text-heading);
+}
+.rp-msg.ai .rp-bubble {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
+  border-bottom-left-radius: 4px;
+}
+.rp-msg.user .rp-bubble {
+  background: linear-gradient(135deg, var(--accent-primary-1), var(--accent-primary-2));
+  border-bottom-right-radius: 4px;
+}
+.rp-tools { display: flex; gap: 6px; margin-top: 4px; }
+.rp-tool {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.rp-tool:hover { color: var(--text-heading); }
+.rp-ko { margin-top: 4px; font-size: 0.88rem; color: rgba(255, 255, 255, 0.6); }
+.rp-feedback {
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--text-body);
+  max-width: 100%;
+  text-align: left;
+}
+.rp-feedback.pending { color: rgba(255, 255, 255, 0.5); }
+.rp-feedback.good { background: rgba(67, 233, 123, 0.12); border: 1px solid rgba(67, 233, 123, 0.3); }
+.rp-feedback.improve { background: rgba(247, 151, 30, 0.12); border: 1px solid rgba(247, 151, 30, 0.35); }
+.rp-feedback.error { background: rgba(255, 107, 107, 0.12); border: 1px solid rgba(255, 107, 107, 0.35); }
+.rp-corrected { margin-top: 4px; font-weight: 600; color: var(--text-heading); }
+.rp-comment { margin-top: 4px; color: rgba(255, 255, 255, 0.7); }
+.rp-score {
+  margin-left: 4px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.75rem;
+}
+.rp-system {
+  align-self: center;
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 6px 10px;
+}
+.rp-system.error { color: var(--error); }
+.roleplay-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0;
+}
+.rp-suggest-label { width: 100%; font-size: 0.8rem; color: rgba(255, 255, 255, 0.55); }
+.rp-suggest { font-size: 0.85rem; padding: 6px 12px; }
+.roleplay-input-row { display: flex; gap: 8px; align-items: center; }
+.roleplay-input-row .text-input { flex: 1; min-width: 0; margin: 0; }
+.roleplay-send { flex-shrink: 0; }
+.roleplay-mic {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.roleplay-mic.recording {
+  background: rgba(255, 107, 107, 0.3);
+  border-color: var(--error);
+  animation: rpPulse 1.2s ease-in-out infinite;
+}
+.roleplay-mic:disabled, .roleplay-send:disabled { opacity: 0.5; cursor: not-allowed; }
+@keyframes rpPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 107, 107, 0); }
+}
+@media (max-width: 768px) {
+  .rp-msg { max-width: 92%; }
+  .roleplay-chat { max-height: 50vh; }
+}

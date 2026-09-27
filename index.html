@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
   <div id="app">
@@ -40,6 +40,10 @@
       <button class="tab-btn" data-tab="pronunciation">
         <span class="tab-icon">🎙️</span>
         <span class="tab-label">발음</span>
+      </button>
+      <button class="tab-btn" data-tab="roleplay">
+        <span class="tab-icon">🎭</span>
+        <span class="tab-label">역할극</span>
       </button>
       <button class="tab-btn" data-tab="vocabulary">
         <span class="tab-icon">📓</span>
@@ -218,6 +222,44 @@
         </div>
       </section>
 
+      <!-- Role-play Pane -->
+      <section class="tab-pane" id="pane-roleplay">
+        <div class="glass-card input-card" id="roleplay-setup">
+          <div class="card-header">
+            <h2>🎭 역할극 회화</h2>
+            <p class="card-desc">상황을 고르면 AI가 상대역을 맡아요. 대답할 때마다 더 자연스러운 표현을 알려드려요</p>
+          </div>
+          <div class="roleplay-scenarios" id="roleplay-scenarios"></div>
+          <input type="text" id="roleplay-custom" class="text-input" style="display:none;" placeholder="상황을 직접 입력하세요 (예: 이웃에게 택배를 대신 받아 달라고 부탁하기)">
+          <div class="roleplay-options">
+            <label for="roleplay-level">난이도</label>
+            <select id="roleplay-level" class="roleplay-select">
+              <option value="basic">초급 (짧고 쉬운 문장)</option>
+              <option value="intermediate" selected>중급 (일상 대화 속도)</option>
+              <option value="advanced">고급 (원어민 표현 그대로)</option>
+            </select>
+            <label class="roleplay-check"><input type="checkbox" id="roleplay-autospeak" checked> AI 대사 자동으로 읽어주기</label>
+          </div>
+          <div class="input-actions">
+            <span></span>
+            <button class="submit-btn" id="roleplay-start"><span class="btn-text">대화 시작</span><span class="btn-icon">→</span></button>
+          </div>
+        </div>
+        <div class="glass-card roleplay-chat-card" id="roleplay-chat-card" style="display:none;">
+          <div class="roleplay-chat-header">
+            <span class="roleplay-title" id="roleplay-title"></span>
+            <button class="audio-btn" id="roleplay-end">다른 상황 고르기</button>
+          </div>
+          <div class="roleplay-chat" id="roleplay-chat"></div>
+          <div class="roleplay-suggestions" id="roleplay-suggestions"></div>
+          <div class="roleplay-input-row">
+            <button class="roleplay-mic" id="roleplay-mic" title="말로 대답하기">🎤</button>
+            <input type="text" id="roleplay-input" class="text-input" placeholder="영어로 대답해 보세요 (한국어로 쓰면 영어 표현을 알려드려요)">
+            <button class="submit-btn roleplay-send" id="roleplay-send">보내기</button>
+          </div>
+        </div>
+      </section>
+
       <!-- Daily Sentence Pane -->
       <section class="tab-pane" id="pane-daily">
         <div class="glass-card input-card">
@@ -387,7 +429,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=6"></script>
+  <script type="module" src="js/app.js?v=7"></script>
 
 
 

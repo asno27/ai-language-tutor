@@ -1,6 +1,6 @@
 ﻿import { callGemini, lookupDictionary, fetchYoutubeTranscript, getGeminiApiKey } from './api.js';
 import { SpeechManager, speak } from './speech.js';
-import { pickDailyScenes } from './prompts.js';
+import { pickDailyScenes, ROLEPLAY_SCENARIOS } from './prompts.js';
 import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount } from './vocabulary.js';
 
 // TTS 함수를 전역으로 노출 (innerHTML onclick에서 사용)
@@ -1210,3 +1210,230 @@ window.addEventListener('click', (e) => {
   }
 });
 
+// === ROLE-PLAY (Phase 2.1) ===
+const roleplaySetup = $('#roleplay-setup');
+const roleplayScenarios = $('#roleplay-scenarios');
+const roleplayCustom = $('#roleplay-custom');
+const roleplayLevel = $('#roleplay-level');
+const roleplayAutoSpeak = $('#roleplay-autospeak');
+const roleplayStart = $('#roleplay-start');
+const roleplayChatCard = $('#roleplay-chat-card');
+const roleplayTitle = $('#roleplay-title');
+const roleplayChat = $('#roleplay-chat');
+const roleplaySuggestions = $('#roleplay-suggestions');
+const roleplayInput = $('#roleplay-input');
+const roleplaySend = $('#roleplay-send');
+const roleplayMic = $('#roleplay-mic');
+const roleplayEnd = $('#roleplay-end');
+const roleplaySpeech = new SpeechManager();
+
+const ROLEPLAY_HISTORY_LIMIT = 12; // AI에게 보내는 최근 대화 수 (요청 크기 제한)
+let roleplayScenarioId = ROLEPLAY_SCENARIOS[0].id;
+let roleplaySession = null;        // { scenario, aiRole, userRole, level, title, history: [{role, text}], ended }
+let roleplayBusy = false;
+
+roleplayScenarios.innerHTML = ROLEPLAY_SCENARIOS.map(s =>
+  `<button class="roleplay-chip${s.id === roleplayScenarioId ? ' active' : ''}" data-id="${s.id}">${escapeHtml(s.label)}</button>`
+).join('');
+
+roleplayScenarios.addEventListener('click', (e) => {
+  const chip = e.target.closest('.roleplay-chip');
+  if (!chip) return;
+  roleplayScenarioId = chip.dataset.id;
+  roleplayScenarios.querySelectorAll('.roleplay-chip').forEach(c => c.classList.toggle('active', c === chip));
+  roleplayCustom.style.display = roleplayScenarioId === 'custom' ? 'block' : 'none';
+  if (roleplayScenarioId === 'custom') roleplayCustom.focus();
+});
+
+function scrollRoleplayToBottom() {
+  roleplayChat.scrollTop = roleplayChat.scrollHeight;
+}
+
+function addRoleplayAiMessage(reply, replyKo) {
+  const msg = document.createElement('div');
+  msg.className = 'rp-msg ai fade-in';
+  msg.innerHTML = `
+    <div class="rp-bubble"><span class="rp-text">${escapeHtml(reply)}</span></div>
+    <div class="rp-tools">
+      <button class="rp-tool" data-action="speak">🔊 듣기</button>
+      ${replyKo ? '<button class="rp-tool" data-action="ko">해석 보기</button>' : ''}
+    </div>
+    ${replyKo ? `<div class="rp-ko" style="display:none;">${escapeHtml(replyKo)}</div>` : ''}`;
+  msg.querySelector('[data-action="speak"]').addEventListener('click', () => speak(reply));
+  const koBtn = msg.querySelector('[data-action="ko"]');
+  if (koBtn) koBtn.addEventListener('click', () => {
+    const ko = msg.querySelector('.rp-ko');
+    const show = ko.style.display === 'none';
+    ko.style.display = show ? 'block' : 'none';
+    koBtn.textContent = show ? '해석 숨기기' : '해석 보기';
+  });
+  roleplayChat.appendChild(msg);
+  makeTextClickable(msg.querySelector('.rp-text'));
+  scrollRoleplayToBottom();
+  if (roleplayAutoSpeak.checked) speak(reply);
+}
+
+function addRoleplayUserMessage(text) {
+  const msg = document.createElement('div');
+  msg.className = 'rp-msg user fade-in';
+  msg.innerHTML = `<div class="rp-bubble">${escapeHtml(text)}</div><div class="rp-feedback pending">⏳ 표현 확인 중...</div>`;
+  roleplayChat.appendChild(msg);
+  scrollRoleplayToBottom();
+  return msg.querySelector('.rp-feedback');
+}
+
+function renderRoleplayFeedback(el, feedback, userText) {
+  if (!feedback) { el.remove(); return; }
+  el.classList.remove('pending');
+  // 한국어로 쓴 경우는 채점하지 않고 "영어로는 이렇게" 안내만 보여줌
+  const wroteKorean = /[가-힣]/.test(userText);
+  const score = !wroteKorean && Number.isFinite(feedback.score) ? feedback.score : null;
+  if (!wroteKorean && feedback.isNatural && (score === null || score >= 85)) {
+    el.className = 'rp-feedback good';
+    el.innerHTML = `✅ 자연스러워요!${score !== null ? ` <span class="rp-score">${score}점</span>` : ''}${feedback.comment ? `<div class="rp-comment">${escapeHtml(feedback.comment)}</div>` : ''}`;
+  } else {
+    el.className = 'rp-feedback improve';
+    el.innerHTML = `${wroteKorean ? '🇺🇸 영어로는 이렇게 말해요' : '💡 이렇게 말하면 더 자연스러워요'}${score !== null ? ` <span class="rp-score">${score}점</span>` : ''}
+      <div class="rp-corrected"><span class="rp-corrected-text">${escapeHtml(feedback.corrected || '')}</span> <button class="rp-tool" data-action="speak">🔊</button></div>
+      ${feedback.comment ? `<div class="rp-comment">${escapeHtml(feedback.comment)}</div>` : ''}`;
+    el.querySelector('[data-action="speak"]').addEventListener('click', () => speak(feedback.corrected || ''));
+    makeTextClickable(el.querySelector('.rp-corrected-text'));
+  }
+  scrollRoleplayToBottom();
+}
+
+function renderRoleplaySuggestions(list) {
+  const items = (list || []).filter(Boolean).slice(0, 3);
+  roleplaySuggestions.innerHTML = items.length
+    ? `<span class="rp-suggest-label">💬 이렇게 대답해 볼 수 있어요:</span>` + items.map(s => `<button class="roleplay-chip rp-suggest">${escapeHtml(s)}</button>`).join('')
+    : '';
+}
+
+roleplaySuggestions.addEventListener('click', (e) => {
+  const chip = e.target.closest('.rp-suggest');
+  if (!chip) return;
+  roleplayInput.value = chip.textContent;
+  roleplayInput.focus();
+});
+
+function setRoleplayBusy(busy) {
+  roleplayBusy = busy;
+  const ended = roleplaySession?.ended;
+  roleplaySend.disabled = busy || ended;
+  roleplayInput.disabled = busy || ended;
+  roleplayMic.disabled = busy || ended;
+}
+
+async function requestRoleplayTurn(message) {
+  const s = roleplaySession;
+  return callGemini('roleplay', {
+    scenario: s.scenario, aiRole: s.aiRole, userRole: s.userRole, level: s.level,
+    history: s.history.slice(-ROLEPLAY_HISTORY_LIMIT),
+    message,
+  }, { temperature: 0.8 });
+}
+
+function finishRoleplayIfEnded(result) {
+  if (!result.ended) return;
+  roleplaySession.ended = true;
+  roleplaySuggestions.innerHTML = '';
+  const done = document.createElement('div');
+  done.className = 'rp-system';
+  done.textContent = '🎉 대화가 자연스럽게 마무리됐어요! [다른 상황 고르기]로 새 대화를 시작해 보세요.';
+  roleplayChat.appendChild(done);
+  scrollRoleplayToBottom();
+}
+
+async function startRoleplay() {
+  const preset = ROLEPLAY_SCENARIOS.find(s => s.id === roleplayScenarioId);
+  const customText = roleplayCustom.value.trim();
+  if (preset.id === 'custom' && !customText) {
+    roleplayCustom.focus();
+    roleplayCustom.placeholder = '⚠️ 상황을 먼저 입력해 주세요 (예: 이웃에게 택배를 대신 받아 달라고 부탁하기)';
+    return;
+  }
+  roleplaySession = {
+    scenario: preset.id === 'custom' ? customText : preset.scenario,
+    aiRole: preset.aiRole,
+    userRole: preset.userRole,
+    level: roleplayLevel.value,
+    title: preset.id === 'custom' ? `✏️ ${customText}` : preset.label,
+    history: [],
+    ended: false,
+  };
+  roleplayTitle.textContent = `${roleplaySession.title} · ${roleplayLevel.options[roleplayLevel.selectedIndex].text.split(' ')[0]}`;
+  roleplayChat.innerHTML = '<div class="rp-system">⏳ AI가 상대역을 준비하고 있어요...</div>';
+  roleplaySuggestions.innerHTML = '';
+  roleplaySetup.style.display = 'none';
+  roleplayChatCard.style.display = 'block';
+  setRoleplayBusy(true);
+  try {
+    const result = await requestRoleplayTurn('');
+    roleplayChat.innerHTML = '';
+    roleplaySession.history.push({ role: 'ai', text: result.reply });
+    addRoleplayAiMessage(result.reply, result.replyKo);
+    renderRoleplaySuggestions(result.suggestions);
+    finishRoleplayIfEnded(result);
+  } catch (e) {
+    roleplayChat.innerHTML = `<div class="rp-system error">⚠️ 대화를 시작하지 못했어요: ${escapeHtml(e.message)}</div>`;
+  } finally {
+    setRoleplayBusy(false);
+    roleplayInput.focus();
+  }
+}
+
+async function sendRoleplayMessage() {
+  const text = roleplayInput.value.trim();
+  if (!text || roleplayBusy || !roleplaySession || roleplaySession.ended) return;
+  roleplaySpeech.stop();
+  roleplayInput.value = '';
+  roleplaySuggestions.innerHTML = '';
+  const feedbackEl = addRoleplayUserMessage(text);
+  setRoleplayBusy(true);
+  try {
+    const result = await requestRoleplayTurn(text);
+    roleplaySession.history.push({ role: 'user', text }, { role: 'ai', text: result.reply });
+    renderRoleplayFeedback(feedbackEl, result.feedback, text);
+    addRoleplayAiMessage(result.reply, result.replyKo);
+    renderRoleplaySuggestions(result.suggestions);
+    finishRoleplayIfEnded(result);
+  } catch (e) {
+    // 실패한 메시지는 대화 기록에 넣지 않고 입력창에 돌려놓아 다시 보낼 수 있게 함
+    feedbackEl.className = 'rp-feedback error';
+    feedbackEl.textContent = `⚠️ 전송 실패: ${e.message} — 다시 보내 주세요.`;
+    roleplayInput.value = text;
+  } finally {
+    setRoleplayBusy(false);
+    roleplayInput.focus();
+  }
+}
+
+roleplayStart.addEventListener('click', startRoleplay);
+roleplaySend.addEventListener('click', sendRoleplayMessage);
+roleplayInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing) sendRoleplayMessage();
+});
+roleplayEnd.addEventListener('click', () => {
+  roleplaySpeech.stop();
+  window.speechSynthesis?.cancel();
+  roleplaySession = null;
+  roleplayChatCard.style.display = 'none';
+  roleplaySetup.style.display = 'block';
+});
+
+// 말로 대답하기: 인식된 문장을 입력창에 넣고, 확인 후 직접 보내도록 함
+if (!roleplaySpeech.isSupported) {
+  roleplayMic.style.display = 'none';
+}
+roleplaySpeech.onStart = () => { roleplayMic.classList.add('recording'); roleplayInput.placeholder = '🔴 듣고 있어요... 다 말했으면 🎤를 다시 누르세요'; };
+roleplaySpeech.onInterim = (text) => { roleplayInput.value = text; };
+roleplaySpeech.onResult = (text) => { roleplayInput.value = text; roleplayInput.focus(); };
+roleplaySpeech.onEnd = () => { roleplayMic.classList.remove('recording'); roleplayInput.placeholder = '영어로 대답해 보세요 (한국어로 쓰면 영어 표현을 알려드려요)'; };
+roleplaySpeech.onError = (error) => {
+  roleplayMic.classList.remove('recording');
+  roleplayInput.placeholder = error === 'not-allowed' ? '⚠️ 마이크 권한이 필요합니다' : '⚠️ 음성이 인식되지 않았어요. 다시 시도해 주세요';
+};
+roleplayMic.addEventListener('click', () => {
+  if (roleplaySpeech.isListening) roleplaySpeech.stop();
+  else { window.speechSynthesis?.cancel(); roleplaySpeech.start(); }
+});
