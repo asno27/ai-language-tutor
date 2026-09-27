@@ -545,21 +545,47 @@ tabBtns.forEach(btn => {
 // === DAILY SENTENCE ===
 let currentDailySentence = null;
 
-// 이미 보여준 문장을 기억해 두고 AI에게 "반복하지 말라"고 전달
-const DAILY_HISTORY_KEY = 'daily_history';
-const DAILY_HISTORY_MAX = 60;
+// 받은 추천을 날짜별로 보관 (달력 아카이브) + 최근 문장은 AI에게 "반복하지 말라"고 전달
+// 형식: { "2026-09-27": [ { at: ISO 시각, themes: [...] }, ... ] }  ※ 이 기기(브라우저)에만 저장됨
+const DAILY_ARCHIVE_KEY = 'daily_archive';
+const LEGACY_HISTORY_KEY = 'daily_history'; // 아카이브 도입 전 문장 목록 (반복 방지에만 사용)
 const DAILY_AVOID_COUNT = 30;
 
-function loadDailyHistory() {
-  try { return JSON.parse(localStorage.getItem(DAILY_HISTORY_KEY)) || []; } catch { return []; }
+function toDateKey(date) {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function rememberDailySentences(data) {
-  const sentences = (data.themes || []).map(t => t.sentence).filter(Boolean);
-  if (!sentences.length) return;
-  const history = loadDailyHistory().filter(s => !sentences.includes(s));
-  localStorage.setItem(DAILY_HISTORY_KEY, JSON.stringify([...history, ...sentences].slice(-DAILY_HISTORY_MAX)));
+function loadDailyArchive() {
+  try { return JSON.parse(localStorage.getItem(DAILY_ARCHIVE_KEY)) || {}; } catch { return {}; }
 }
+
+function saveToDailyArchive(data) {
+  if (!data?.themes?.length) return;
+  const archive = loadDailyArchive();
+  const key = toDateKey(data.date || new Date());
+  const sets = archive[key] || [];
+  const first = data.themes[0].sentence;
+  if (sets.some(s => s.themes?.[0]?.sentence === first)) return;
+  sets.push({ at: data.date || new Date().toISOString(), themes: data.themes });
+  archive[key] = sets;
+  localStorage.setItem(DAILY_ARCHIVE_KEY, JSON.stringify(archive));
+}
+
+function getRecentDailySentences(count) {
+  let legacy = [];
+  try { legacy = JSON.parse(localStorage.getItem(LEGACY_HISTORY_KEY)) || []; } catch {}
+  const archived = Object.values(loadDailyArchive()).flat()
+    .sort((a, b) => new Date(a.at) - new Date(b.at))
+    .flatMap(set => set.themes.map(t => t.sentence));
+  return [...new Set([...legacy, ...archived].filter(Boolean))].slice(-count);
+}
+
+// 아카이브 도입 전에 받아 둔 오늘의 추천도 아카이브에 넣어 둠
+try {
+  const storedDaily = JSON.parse(localStorage.getItem('daily_sentence'));
+  if (storedDaily?.themes) saveToDailyArchive(storedDaily);
+} catch {}
 
 async function loadDailySentence() {
   // Check if we already have today's sentence
@@ -582,23 +608,21 @@ async function generateDailySentence() {
   dailySentence.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">⏳</span><p>오늘의 추천 영어 표현들을 생성 중입니다...</p></div>`;
   dailyPractice.style.display = 'none';
   try {
-    const avoid = loadDailyHistory().slice(-DAILY_AVOID_COUNT);
+    const avoid = getRecentDailySentences(DAILY_AVOID_COUNT);
     const result = await callGemini('daily', { scenes: pickDailyScenes(), avoid }, { temperature: 1.0 });
     const data = { ...result, date: new Date().toISOString() };
     localStorage.setItem('daily_sentence', JSON.stringify(data));
+    saveToDailyArchive(data);
+    if (dailyArchive.style.display !== 'none') renderArchive();
     displayDailySentence(data);
   } catch (e) {
     dailySentence.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">⚠️</span><p>생성에 실패했습니다: ${escapeHtml(e.message)}</p></div>`;
   }
 }
 
-function displayDailySentence(data) {
-  currentDailySentence = data;
-  rememberDailySentences(data);
+function renderThemeCards(themes) {
   let html = '';
-  
-  if (data.themes && Array.isArray(data.themes)) {
-    data.themes.forEach((theme, index) => {
+  themes.forEach(theme => {
       let wordsHtml = '';
       if (theme.words && theme.words.length > 0) {
         wordsHtml = '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">';
@@ -625,7 +649,16 @@ function displayDailySentence(data) {
           </div>
         </div>
       `;
-    });
+  });
+  return html;
+}
+
+function displayDailySentence(data) {
+  currentDailySentence = data;
+  let html = '';
+
+  if (data.themes && Array.isArray(data.themes)) {
+    html = renderThemeCards(data.themes);
   } else {
     // Fallback for old saved data structure
     html = `
@@ -734,6 +767,83 @@ dailyMicBtn.addEventListener('click', () => {
 });
 
 dailyNewBtn.addEventListener('click', generateDailySentence);
+
+// === DAILY ARCHIVE (달력) ===
+const dailyArchive = $('#daily-archive');
+const dailyArchiveBtn = $('#daily-archive-btn');
+const archiveMonthEl = $('#archive-month');
+const archiveGrid = $('#archive-grid');
+const archiveDetail = $('#archive-detail');
+let archiveMonth = new Date();          // 달력에 표시 중인 달
+let archiveSelectedKey = toDateKey(new Date());
+
+function renderArchive() {
+  const archive = loadDailyArchive();
+  const year = archiveMonth.getFullYear();
+  const month = archiveMonth.getMonth();
+  const todayKey = toDateKey(new Date());
+  archiveMonthEl.textContent = `${year}년 ${month + 1}월`;
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let html = '<span class="archive-day empty"></span>'.repeat(firstDay);
+  for (let day = 1; day <= daysInMonth; day++) {
+    const key = toDateKey(new Date(year, month, day));
+    const count = archive[key]?.length || 0;
+    const classes = ['archive-day'];
+    if (count) classes.push('has-entry');
+    if (key === todayKey) classes.push('today');
+    if (key === archiveSelectedKey) classes.push('selected');
+    html += `<button class="${classes.join(' ')}" data-key="${key}" ${count ? '' : 'disabled'} title="${count ? `추천 ${count}세트` : ''}">
+      <span class="archive-day-num">${day}</span>${count ? `<span class="archive-day-count">${count}</span>` : ''}
+    </button>`;
+  }
+  archiveGrid.innerHTML = html;
+  renderArchiveDay(archiveSelectedKey, archive);
+}
+
+function renderArchiveDay(key, archive = loadDailyArchive()) {
+  const sets = archive[key];
+  const [, m, d] = key.split('-').map(Number);
+  if (!sets?.length) {
+    archiveDetail.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">🗓️</span><p>${m}월 ${d}일에 받은 추천이 없습니다. 점이 있는 날짜를 눌러 보세요.</p></div>`;
+    return;
+  }
+  let html = `<h4 class="archive-detail-title">${m}월 ${d}일 · 추천 ${sets.length}세트</h4>`;
+  [...sets].reverse().forEach(set => {
+    const time = new Date(set.at).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+    html += `<div class="archive-set"><div class="archive-set-time">🕒 ${escapeHtml(time)}</div>${renderThemeCards(set.themes)}</div>`;
+  });
+  archiveDetail.innerHTML = html;
+  makeTextClickable(archiveDetail);
+}
+
+dailyArchiveBtn.addEventListener('click', () => {
+  const open = dailyArchive.style.display === 'none';
+  dailyArchive.style.display = open ? 'block' : 'none';
+  dailyArchiveBtn.textContent = open ? '📅 달력 닫기' : '📅 지난 추천 보기';
+  if (open) {
+    archiveMonth = new Date();
+    archiveSelectedKey = toDateKey(new Date());
+    renderArchive();
+  }
+});
+
+archiveGrid.addEventListener('click', (e) => {
+  const cell = e.target.closest('.archive-day[data-key]');
+  if (!cell || cell.disabled) return;
+  archiveSelectedKey = cell.dataset.key;
+  renderArchive();
+});
+
+$('#archive-prev').addEventListener('click', () => {
+  archiveMonth = new Date(archiveMonth.getFullYear(), archiveMonth.getMonth() - 1, 1);
+  renderArchive();
+});
+$('#archive-next').addEventListener('click', () => {
+  archiveMonth = new Date(archiveMonth.getFullYear(), archiveMonth.getMonth() + 1, 1);
+  renderArchive();
+});
 
 // 다운로드 헬퍼 함수
 function downloadTextFile(filename, text) {

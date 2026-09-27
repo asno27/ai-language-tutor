@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
   <div id="app">
@@ -252,9 +252,19 @@
             </div>
           </div>
           <div class="input-actions" style="margin-top:1rem">
-            <span></span>
+            <button class="audio-btn" id="daily-archive-btn">📅 지난 추천 보기</button>
             <button class="submit-btn" id="daily-new-btn"><span class="btn-text">🎲 새 문장 받기</span><span class="btn-icon">→</span></button>
           </div>
+        </div>
+        <div class="glass-card daily-archive" id="daily-archive" style="display:none;">
+          <div class="archive-header">
+            <button class="archive-nav" id="archive-prev" aria-label="이전 달">◀</button>
+            <h3 class="archive-month" id="archive-month"></h3>
+            <button class="archive-nav" id="archive-next" aria-label="다음 달">▶</button>
+          </div>
+          <div class="archive-weekdays"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+          <div class="archive-grid" id="archive-grid"></div>
+          <div class="archive-detail" id="archive-detail"></div>
         </div>
         <div class="glass-card output-card" id="daily-output">
           <div class="placeholder-message"><span class="placeholder-icon">🗣️</span><p>문장을 듣고 따라 말하면 피드백을 받을 수 있어요</p></div>
@@ -377,7 +387,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=5"></script>
+  <script type="module" src="js/app.js?v=6"></script>
 
 
 

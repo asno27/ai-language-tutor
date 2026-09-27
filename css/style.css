@@ -1100,3 +1100,84 @@ body::after {
 .mini-dict-add-btn:hover {
   opacity: 0.9;
 }
+
+/* === Daily Archive (달력) === */
+.daily-archive .archive-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
+}
+.archive-month {
+  color: var(--text-heading);
+  font-size: 1.1rem;
+}
+.archive-nav {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  color: var(--text-body);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+}
+.archive-nav:hover { background: rgba(255, 255, 255, 0.12); }
+.archive-weekdays,
+.archive-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.archive-weekdays span {
+  text-align: center;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  padding-bottom: 4px;
+}
+.archive-weekdays span:first-child { color: rgba(255, 107, 107, 0.7); }
+.archive-day {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.archive-day.empty { background: transparent; }
+.archive-day.has-entry {
+  color: var(--text-heading);
+  background: rgba(102, 126, 234, 0.18);
+  border-color: rgba(102, 126, 234, 0.35);
+  cursor: pointer;
+}
+.archive-day.has-entry:hover { background: rgba(102, 126, 234, 0.3); }
+.archive-day.today { border-color: var(--accent-secondary-1); }
+.archive-day.selected {
+  background: linear-gradient(135deg, var(--accent-primary-1), var(--accent-primary-2));
+  color: #fff;
+}
+.archive-day-count {
+  font-size: 0.65rem;
+  line-height: 1;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+}
+.archive-detail { margin-top: 1.2rem; }
+.archive-detail-title {
+  color: var(--text-heading);
+  margin-bottom: 0.8rem;
+}
+.archive-set { margin-bottom: 1rem; }
+.archive-set-time {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+}
