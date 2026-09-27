@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
   <div id="app">
@@ -65,7 +65,7 @@
 
     <!-- Main Content Area -->
     <main class="main-content">
-      
+
       <!-- Writing Correction Pane -->
       <section class="tab-pane active" id="pane-writing">
         <div class="glass-card input-card">
@@ -191,6 +191,36 @@
           </div>
           <div class="vocab-list" id="vocab-list">
             <div class="placeholder-message"><span class="placeholder-icon">📝</span><p>사전에서 단어를 검색하고 ⭐ 버튼으로 저장하세요</p></div>
+          </div>
+        </div>
+
+        <div class="glass-card sync-card" id="sync-card">
+          <div class="card-header">
+            <h2>🔄 기기 간 동기화</h2>
+            <p class="card-desc">휴대폰과 PC의 단어장, 오늘의 영어 기록, 관심사를 똑같이 맞춰요. 회원가입 없이 동기화 코드로 연결해요.</p>
+          </div>
+          <div id="sync-off">
+            <button class="submit-btn" id="sync-enable"><span class="btn-text">이 기기에서 동기화 시작하기</span><span class="btn-icon">→</span></button>
+            <div class="sync-join">
+              <input type="text" id="sync-join-input" class="text-input" placeholder="이미 쓰는 기기가 있다면 그 기기의 코드 입력 (XXXX-XXXX-...)" autocomplete="off" spellcheck="false">
+              <button class="audio-btn" id="sync-join-btn">연결</button>
+            </div>
+          </div>
+          <div id="sync-on" style="display:none;">
+            <div class="sync-status" id="sync-status"></div>
+            <div class="sync-code-row">
+              <span class="sync-code-label">동기화 코드</span>
+              <code class="sync-code" id="sync-code"></code>
+              <button class="rp-tool" id="sync-code-toggle">보기</button>
+              <button class="rp-tool" id="sync-code-copy">복사</button>
+            </div>
+            <div class="sync-actions">
+              <button class="audio-btn" id="sync-now">🔄 지금 동기화</button>
+              <button class="audio-btn" id="sync-qr-btn">📱 QR로 다른 기기 연결</button>
+              <button class="audio-btn sync-off-btn" id="sync-disable">이 기기 연결 끊기</button>
+            </div>
+            <div class="sync-qr" id="sync-qr" style="display:none;"></div>
+            <p class="sync-warn">⚠️ 코드를 아는 사람은 누구나 이 데이터를 보고 바꿀 수 있어요. 비밀번호처럼 보관하세요.</p>
           </div>
         </div>
 
@@ -343,18 +373,18 @@
             <div class="video-container" style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; margin-bottom:1.5rem;">
               <iframe id="worksheet-video" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allowfullscreen></iframe>
             </div>
-            
+
             <h3 style="margin-bottom: 1rem; color: var(--accent-1);">✍️ 딕테이션 (빈칸 채우기)</h3>
             <div id="worksheet-dictation" style="margin-bottom: 2rem;"></div>
             <button class="submit-btn" id="worksheet-check-btn" style="margin-bottom: 2rem; width: 100%;">
               <span class="btn-text">정답 확인하기</span>
             </button>
-            
+
             <h3 style="margin-bottom: 1rem; color: var(--accent-1);">🎙️ 쉐도잉 낭독 & 발음 평가</h3>
             <div class="daily-sentence-card" style="margin-bottom: 1rem;">
               <div class="daily-sentence-text" id="worksheet-shadowing-text" style="font-size: 1.1rem; line-height: 1.6; margin-bottom: 10px;"></div>
               <div class="daily-sentence-translation" id="worksheet-shadowing-ko" style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 15px;"></div>
-              
+
               <div class="input-actions" style="justify-content: space-between;">
                 <p class="mic-status" id="worksheet-mic-status" style="margin: 0; font-size: 0.9rem; flex-grow: 1;">버튼을 누르고 전체 요약을 낭독해 보세요</p>
                 <button class="mic-btn" id="worksheet-mic-btn" title="낭독 시작">
@@ -443,7 +473,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=9"></script>
+  <script type="module" src="js/app.js?v=10"></script>
 
 
 

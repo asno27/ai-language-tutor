@@ -8,6 +8,8 @@
 //   GEMINI_API_KEY (Secret), GROQ_API_KEY (Secret)
 //   GEMINI_MODEL, GROQ_MODEL (Text, 선택 — 모델이 단종되면 여기서만 바꾸면 됨. Groq는 아래 목록도 자동으로 차례대로 시도)
 
+import { handleSync } from './sync.js';
+
 const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
 // Groq는 모델이 자주 단종되므로 여러 개를 순서대로 시도 (GROQ_MODEL 환경변수가 있으면 가장 먼저 시도)
 const DEFAULT_GROQ_MODELS = [
@@ -39,7 +41,7 @@ function corsHeaders(origin, request) {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     // 기존 프론트가 붙여 보내는 ngrok 헤더도 허용해 둬야 브라우저가 요청을 막지 않음
-    'Access-Control-Allow-Headers': 'Content-Type, ngrok-skip-browser-warning',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, ngrok-skip-browser-warning',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -114,7 +116,8 @@ export default {
     const cors = corsHeaders(origin, request);
 
     // 사이트 파일(index.html 등)은 Cloudflare가 먼저 처리하고, 없는 경로만 여기로 옴
-    if (new URL(request.url).pathname !== '/api/llm') {
+    const path = new URL(request.url).pathname;
+    if (path !== '/api/llm' && path !== '/api/sync') {
       return json({ success: false, detail: 'Not found' }, 404, cors);
     }
     if (request.method === 'OPTIONS') {
@@ -126,6 +129,15 @@ export default {
     // 브라우저에서 온 요청은 허용된 사이트만 받음 (주소가 노출돼 남이 API 한도를 쓰는 것을 줄이기 위함)
     if (origin && !isAllowedOrigin(origin, request)) {
       return json({ success: false, detail: 'Origin not allowed' }, 403, cors);
+    }
+
+    if (path === '/api/sync') {
+      try {
+        return await handleSync(request, env, cors, json);
+      } catch (e) {
+        console.error('Sync failed:', e);
+        return json({ success: false, detail: `Sync error: ${e.message || e}` }, 500, cors);
+      }
     }
 
     let body;

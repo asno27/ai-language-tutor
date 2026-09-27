@@ -34,6 +34,11 @@ const LLM_WORKER_URL = 'https://ai-language-tutor.kaipromp.workers.dev/api/llm';
 
 const PC_SERVER_URL = 'https://overexert-swiftly-endeared.ngrok-free.dev';
 
+/** Worker 주소 (예: https://ai-language-tutor.kaipromp.workers.dev). 동기화 API 등에서 사용 */
+export function getWorkerOrigin() {
+  return LLM_WORKER_URL ? new URL(LLM_WORKER_URL).origin : window.location.origin;
+}
+
 function getPcServerBase() {
   const savedUrl = localStorage.getItem('backend_url');
   return (savedUrl || PC_SERVER_URL).replace(/\/$/, '');

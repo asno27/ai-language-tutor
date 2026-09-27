@@ -2,7 +2,8 @@
 import { SpeechManager, speak } from './speech.js';
 import { pickDailyScenes, ROLEPLAY_SCENARIOS } from './prompts.js';
 import { compareWords } from './shadowing.js';
-import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount } from './vocabulary.js';
+import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount, applyRemoteVocab, collectAllVocab } from './vocabulary.js';
+import { registerSyncKind, queueChange, onSyncStatus, enableSync, disableSync, syncNow, isSyncEnabled, getSyncCode, formatCode, isValidCode, getLastSyncAt } from './sync.js';
 
 // TTS 함수를 전역으로 노출 (innerHTML onclick에서 사용)
 window.speakText = speak;
@@ -54,23 +55,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const meaningsEl = document.getElementById('mini-dict-meanings');
   const addBtn = document.getElementById('mini-dict-add-btn');
   let currentWord = '';
+  let currentDictData = null;
 
   document.body.addEventListener('click', async (e) => {
     if (e.target.classList.contains('clickable-word')) {
       const word = e.target.textContent.replace(/[^a-zA-Z']/g, '');
       if (!word) return;
-      
+
       currentWord = word.toLowerCase();
       const rect = e.target.getBoundingClientRect();
-      
+
       popup.style.display = 'block';
       popup.style.left = (rect.left + rect.width / 2) + window.scrollX + 'px';
       popup.style.top = (rect.top + window.scrollY) + 'px';
-      
+
       wordEl.textContent = word;
       phoneticEl.textContent = '';
       meaningsEl.innerHTML = '<div class="placeholder-message" style="margin:0; padding:10px 0;"><span class="placeholder-icon" style="font-size:1.2rem;">⏳</span><p style="font-size:0.8rem; margin:0;">검색 중...</p></div>';
-      
+
       if (isWordSaved(currentWord)) {
         addBtn.textContent = '단어장에 있음';
         addBtn.style.background = 'var(--success)';
@@ -80,19 +82,22 @@ document.addEventListener('DOMContentLoaded', () => {
         addBtn.style.background = 'var(--accent-2)';
         addBtn.disabled = false;
       }
-      
+
       let dictData = null;
+      currentDictData = null;
+      const lookedUp = currentWord;
       try {
         dictData = await callGemini('dictionary', { word: currentWord });
       } catch (e) {
         console.error(e);
       }
-      
+      if (lookedUp === currentWord) currentDictData = dictData;
+
       if (!dictData) {
         meaningsEl.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:0.85rem;">결과를 찾을 수 없습니다.</div>';
         return;
       }
-      
+
       phoneticEl.textContent = dictData.phonetic || '';
       if (dictData.meanings && dictData.meanings.length > 0) {
         let html = '';
@@ -105,16 +110,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         meaningsEl.innerHTML = html;
       }
-      
+
     } else if (popup && !popup.contains(e.target)) {
       popup.style.display = 'none';
     }
   });
-  
+
   if (addBtn) {
     addBtn.addEventListener('click', () => {
       if (currentWord && !isWordSaved(currentWord)) {
-        saveWord(currentWord);
+        // 예전에는 saveWord(문자열)로 호출해 단어가 빈 값으로 저장되던 버그가 있었음
+        saveWord({
+          word: currentWord,
+          phonetic: currentDictData?.phonetic || '',
+          meanings: currentDictData?.meanings || [],
+        });
+        updateVocabStats();
         addBtn.textContent = '저장됨 ✓';
         addBtn.style.background = 'var(--success)';
         addBtn.disabled = true;
@@ -128,25 +139,25 @@ window.handleNuanceSubmit = async function() {
   const nuanceInput = document.getElementById('nuance-input');
   const nuanceSubmit = document.getElementById('nuance-submit');
   const nuanceOutput = document.getElementById('nuance-output');
-  
+
   if (!nuanceInput || !nuanceSubmit || !nuanceOutput) {
     console.error('Nuance DOM elements missing!');
     return;
   }
-  
+
   const query = nuanceInput.value.trim();
   if (!query) return;
-  
+
   nuanceSubmit.disabled = true;
   const originalBtnText = nuanceSubmit.innerHTML;
   nuanceSubmit.innerHTML = `<span class="btn-text">분석 중...</span>`;
   nuanceOutput.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">⏳</span><p>AI가 뉘앙스를 분석하고 있습니다...</p></div>`;
-  
+
   try {
     // Dynamic import to avoid module issues just in case
     const { callGemini } = await import('./api.js');
     const result = await callGemini('nuance', { query });
-    
+
     // Helper function for HTML escaping inside this scope
     const esc = (str) => {
       if (!str) return '';
@@ -167,7 +178,7 @@ window.handleNuanceSubmit = async function() {
         <span style="color: var(--text-primary); line-height: 1.5;">${esc(result.explanation)}</span>
       </div>
     `;
-    
+
     if (result.words && Array.isArray(result.words)) {
       result.words.forEach(w => {
         html += `
@@ -341,7 +352,7 @@ function renderDictionaryResult(dictData, llmData) {
     html += `<button class="audio-btn" onclick="new Audio('${dictData.audioUrl}').play()">🔊 원어민 발음</button> `;
   }
   html += `<button class="audio-btn" onclick="speakText('${escapeHtml(word).replace(/'/g, "\\'")}')">${dictData?.audioUrl ? '🗣️ TTS 발음' : '🔊 발음 듣기'}</button>`;
-  
+
   // Add save-to-vocabulary button
   const saved = isWordSaved(word);
   html += ` <button class="vocab-save-btn ${saved ? 'saved' : ''}" id="dict-save-btn" ${saved ? 'disabled' : ''} data-word="${escapeHtml(word)}" data-phonetic="${escapeHtml(phonetic)}">${saved ? '✅ 저장됨' : '⭐ 단어장에 저장'}</button>`;
@@ -365,7 +376,7 @@ function renderDictionaryResult(dictData, llmData) {
       saveBtn.disabled = true;
       const originalText = saveBtn.textContent;
       saveBtn.textContent = '⏳ 맞춤 예문 생성 중...';
-      
+
       let customExamples = [];
       const interests = localStorage.getItem('vocab_interests') || '';
       if (interests.trim()) {
@@ -386,7 +397,7 @@ function renderDictionaryResult(dictData, llmData) {
         audioUrl: dictData?.audioUrl || '',
         customExamples: customExamples
       };
-      
+
       if (saveWord(wordData)) {
         saveBtn.textContent = '✅ 저장됨';
         saveBtn.classList.add('saved');
@@ -422,12 +433,12 @@ function updateVocabStats() {
 function renderVocabList() {
   const words = getAllWords();
   updateVocabStats();
-  
+
   if (words.length === 0) {
     vocabList.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">📝</span><p>사전에서 단어를 검색하고 ⭐ 버튼으로 저장하세요</p></div>`;
     return;
   }
-  
+
   let html = '';
   words.forEach(w => {
     const badge = w.interval >= 21 ? 'mastered' : w.repetitions > 0 ? 'learning' : 'new';
@@ -446,7 +457,7 @@ function renderVocabList() {
     </div>`;
   });
   vocabList.innerHTML = html;
-  
+
   // Delete button handlers
   vocabList.querySelectorAll('.vocab-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -484,11 +495,11 @@ function showCard() {
   flashcardWord.textContent = w.word;
   flashcardPhonetic.textContent = w.phonetic || '';
   let meaningText = w.meanings?.map(m => `${m.partOfSpeech}: ${m.definitions?.join(', ')}`).join('\n') || '뜻 정보 없음';
-  
+
   if (w.customExamples && w.customExamples.length > 0) {
     meaningText += '\n\n💡 내 관심사 맞춤 예문:\n' + w.customExamples.map(ex => `• ${ex.en}\n  → ${ex.ko}`).join('\n\n');
   }
-  
+
   flashcardMeaning.textContent = meaningText;
   flashcard.classList.remove('flipped');
 }
@@ -556,9 +567,11 @@ function saveToDailyArchive(data) {
   const sets = archive[key] || [];
   const first = data.themes[0].sentence;
   if (sets.some(s => s.themes?.[0]?.sentence === first)) return;
-  sets.push({ at: data.date || new Date().toISOString(), themes: data.themes });
+  const set = { at: data.date || new Date().toISOString(), themes: data.themes };
+  sets.push(set);
   archive[key] = sets;
   localStorage.setItem(DAILY_ARCHIVE_KEY, JSON.stringify(archive));
+  queueChange('daily_set', `${key}|${set.at}`, { date: key, ...set }, { updatedAt: Date.parse(set.at) || Date.now() });
 }
 
 function getRecentDailySentences(count) {
@@ -621,7 +634,7 @@ function renderThemeCards(themes) {
         });
         wordsHtml += '</div>';
       }
-      
+
       html += `
         <div class="daily-theme-card fade-in" style="margin-bottom: 15px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
           <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 10px;">
@@ -656,11 +669,11 @@ function displayDailySentence(data) {
       ${data.context ? `<div class="daily-sentence-context" style="margin-top: 10px; font-size: 0.9rem; color: var(--text-muted);">💡 ${escapeHtml(data.context)}</div>` : ''}
     `;
   }
-  
+
   dailySentence.innerHTML = html;
   makeTextClickable(dailySentence);
   dailyPractice.style.display = 'block';
-  
+
   // Initialize shadowing with the first theme if available
   if (data.themes && data.themes.length > 0) {
     setShadowingTarget(data.themes[0].sentence);
@@ -867,16 +880,16 @@ if (worksheetSelect) {
     currentWorksheet = worksheetData[idx];
     renderWorksheet(currentWorksheet);
   });
-  
+
   function renderWorksheet(ws) {
     worksheetContent.style.display = 'block';
     worksheetVideo.src = ws.youtubeUrl;
-    
+
     worksheetDictation.innerHTML = '';
     ws.dictation.forEach((dict, i) => {
       const container = document.createElement('div');
       container.style.marginBottom = '1.5rem';
-      
+
       let htmlSentence = dict.sentence;
       const blankRegex = /\{(.*?)\}/g;
       let match;
@@ -888,7 +901,7 @@ if (worksheetSelect) {
         htmlSentence = htmlSentence.replace(match[0], inputHtml);
         blankIndex++;
       }
-      
+
       container.innerHTML = `
         <div style="font-size:1.1rem; line-height:1.6; margin-bottom:5px;">${i+1}. ${htmlSentence}</div>
         <div style="color:var(--text-muted); font-size:0.95rem;">${escapeHtml(dict.ko)}</div>
@@ -896,7 +909,7 @@ if (worksheetSelect) {
       worksheetDictation.appendChild(container);
       makeTextClickable(container);
     });
-    
+
     worksheetCheckBtn.style.display = 'block';
     worksheetCheckBtn.querySelector('.btn-text').textContent = '정답 확인하기';
     worksheetCheckBtn.onclick = () => {
@@ -916,7 +929,7 @@ if (worksheetSelect) {
       });
       worksheetCheckBtn.querySelector('.btn-text').textContent = allCorrect ? '완벽합니다! 🎉' : '다시 복습해보세요';
     };
-    
+
     worksheetShadowingText.textContent = ws.shadowing.text;
     makeTextClickable(worksheetShadowingText);
     worksheetShadowingKo.textContent = ws.shadowing.ko;
@@ -929,7 +942,7 @@ if (worksheetSelect) {
     worksheetMicBtn.style.cursor = 'not-allowed';
     worksheetMicStatus.textContent = '현재 브라우저에서는 음성 인식을 지원하지 않습니다.';
   }
-  
+
   let worksheetRecording = false;
   worksheetSpeech.onStart = () => { 
     worksheetRecording = true;
@@ -949,7 +962,7 @@ if (worksheetSelect) {
       worksheetMicStatus.textContent = '버튼을 누르고 전체 요약을 낭독해 보세요';
     }, 3000);
   };
-  
+
   worksheetSpeech.onResult = async (text) => {
     if (!text) return;
     worksheetSttResult.style.display = 'block';
@@ -975,14 +988,14 @@ async function handleYoutubeSubmit() {
   showLoading();
   youtubeSubmit.disabled = true;
   youtubeOutput.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">⏳</span><p>서버에서 영상 스크립트를 추출 중입니다 (최대 1~2분 소요)...</p></div>`;
-  
+
   try {
     const apiKey = getGeminiApiKey();
     // 1. 서버에서 스크립트 덩어리(segments) 가져오기
     const ytData = await fetchYoutubeTranscript(url, apiKey);
     const segments = ytData.segments;
     const sourceMsg = ytData.source === 'cc' ? '공식 자막 추출' : '오디오 음성 인식 추출';
-    
+
     // 2. 스크립트 번역 (각 덩어리마다 번역하여 점진적 렌더링)
     youtubeOutput.innerHTML = `
       <div class="result-section fade-in" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; background: transparent; padding: 0; border: none;">
@@ -996,10 +1009,10 @@ async function handleYoutubeSubmit() {
         <span class="placeholder-icon">🔄</span><p>AI가 순차적으로 번역 중입니다...</p>
       </div>
     `;
-    
+
     const container = document.getElementById('segments-container');
     let textContentToDownload = "=== 유튜브 영상 번역 ===\nURL: " + url + "\n\n";
-    
+
     for (const seg of segments) {
       let translated = '번역 중 오류 발생 (건너뜀)';
       try {
@@ -1010,7 +1023,7 @@ async function handleYoutubeSubmit() {
       } catch (e) {
           console.error('Segment translation failed:', e);
       }
-      
+
       const segmentHtml = `
         <div class="transcript-segment fade-in" style="margin-bottom: 1.5rem; padding: 1.2rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
           <div class="timecode" style="color: var(--accent-1); font-weight: 600; font-size: 0.9rem; margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
@@ -1021,23 +1034,23 @@ async function handleYoutubeSubmit() {
           <div class="kor-text" style="font-size: 1.05rem; color: #fff; line-height: 1.6;">${escapeHtml(translated)}</div>
         </div>
       `;
-      
+
       container.insertAdjacentHTML('beforeend', segmentHtml);
       textContentToDownload += `[${seg.time}]\n원문: ${seg.text}\n번역: ${translated}\n\n`;
-      
+
       // Groq 무료 계정의 분당 토큰 제한(TPM) 초과를 방지하기 위해 청크 사이에 2초 대기
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
-    
+
     document.getElementById('translating-indicator').style.display = 'none';
-    
+
     const downloadBtn = document.getElementById('download-txt');
     downloadBtn.disabled = false;
     downloadBtn.textContent = '📥 텍스트 파일로 다운로드';
     downloadBtn.addEventListener('click', () => {
       downloadTextFile('youtube_translation.txt', textContentToDownload);
     });
-    
+
   } catch (e) {
     showError(youtubeOutput, e.message);
   } finally {
@@ -1050,13 +1063,17 @@ youtubeSubmit.addEventListener('click', handleYoutubeSubmit);
 youtubeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleYoutubeSubmit(); });
 
 
-  
+
   // Vocabulary Interests Logic
   const interestsInput = document.getElementById('vocab-interests');
   if (interestsInput) {
     interestsInput.value = localStorage.getItem('vocab_interests') || '';
     interestsInput.addEventListener('change', (e) => {
-      localStorage.setItem('vocab_interests', e.target.value.trim());
+      const value = e.target.value.trim();
+      const at = Date.now();
+      localStorage.setItem('vocab_interests', value);
+      localStorage.setItem('vocab_interests_at', String(at));
+      queueChange('setting', 'vocab_interests', { value }, { updatedAt: at });
     });
   }
   updateVocabStats();
@@ -1102,15 +1119,15 @@ if (nuanceFab) {
     nuanceOverlay.style.display = 'flex';
     nuanceInput.focus();
   });
-  
+
   nuanceClose.addEventListener('click', () => {
     nuanceOverlay.style.display = 'none';
   });
-  
+
   nuanceOverlay.addEventListener('click', (e) => {
     if (e.target === nuanceOverlay) nuanceOverlay.style.display = 'none';
   });
-  
+
   nuanceInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && window.handleNuanceSubmit) window.handleNuanceSubmit();
   });
@@ -1782,3 +1799,167 @@ pdfFileInput.addEventListener('change', () => handlePdfFile(pdfFileInput.files[0
 ['dragleave', 'drop'].forEach(ev => pdfDrop.addEventListener(ev, (e) => { e.preventDefault(); pdfDrop.classList.remove('dragging'); }));
 pdfDrop.addEventListener('drop', (e) => handlePdfFile(e.dataTransfer.files[0]));
 renderPdfRecent();
+
+// === 기기 간 동기화 (Phase 2.5) ===
+function refreshAfterSync() {
+  updateVocabStats();
+  if ($('#pane-vocabulary').classList.contains('active')) renderVocabList();
+  if (dailyArchive.style.display !== 'none') renderArchive();
+  const interests = document.getElementById('vocab-interests');
+  if (interests && document.activeElement !== interests) interests.value = localStorage.getItem('vocab_interests') || '';
+}
+
+registerSyncKind('vocab', {
+  apply: applyRemoteVocab,
+  collectAll: collectAllVocab,
+});
+
+registerSyncKind('daily_set', {
+  apply(changes) {
+    const archive = loadDailyArchive();
+    let changed = false;
+    for (const c of changes) {
+      if (c.deleted || !c.data?.themes?.length || !c.data.date) continue;
+      const sets = archive[c.data.date] || [];
+      const first = c.data.themes[0].sentence;
+      if (sets.some(s => s.at === c.data.at || s.themes?.[0]?.sentence === first)) continue;
+      sets.push({ at: c.data.at, themes: c.data.themes });
+      sets.sort((a, b) => new Date(a.at) - new Date(b.at));
+      archive[c.data.date] = sets;
+      changed = true;
+    }
+    if (changed) localStorage.setItem(DAILY_ARCHIVE_KEY, JSON.stringify(archive));
+    return changed;
+  },
+  collectAll() {
+    return Object.entries(loadDailyArchive()).flatMap(([date, sets]) =>
+      sets.map(set => ({ id: `${date}|${set.at}`, data: { date, ...set }, updatedAt: Date.parse(set.at) || 1 })));
+  },
+});
+
+registerSyncKind('setting', {
+  apply(changes) {
+    let changed = false;
+    for (const c of changes) {
+      if (c.id !== 'vocab_interests' || c.deleted) continue;
+      const localAt = Number(localStorage.getItem('vocab_interests_at')) || 0;
+      if (localAt >= c.updatedAt) continue;
+      localStorage.setItem('vocab_interests', c.data?.value || '');
+      localStorage.setItem('vocab_interests_at', String(c.updatedAt));
+      changed = true;
+    }
+    return changed;
+  },
+  collectAll() {
+    const value = localStorage.getItem('vocab_interests') || '';
+    return value ? [{ id: 'vocab_interests', data: { value }, updatedAt: Number(localStorage.getItem('vocab_interests_at')) || 1 }] : [];
+  },
+});
+
+const QRCODE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+const syncOff = $('#sync-off');
+const syncOn = $('#sync-on');
+const syncStatusEl = $('#sync-status');
+const syncCodeEl = $('#sync-code');
+const syncCodeToggle = $('#sync-code-toggle');
+const syncQr = $('#sync-qr');
+const syncJoinInput = $('#sync-join-input');
+let syncCodeVisible = false;
+
+function renderSyncCard() {
+  const enabled = isSyncEnabled();
+  syncOff.style.display = enabled ? 'none' : 'block';
+  syncOn.style.display = enabled ? 'block' : 'none';
+  if (!enabled) { syncQr.style.display = 'none'; syncQr.innerHTML = ''; return; }
+  const code = formatCode(getSyncCode());
+  syncCodeEl.textContent = syncCodeVisible ? code : code.replace(/[0-9A-Z]/g, '•');
+  syncCodeToggle.textContent = syncCodeVisible ? '숨기기' : '보기';
+}
+
+onSyncStatus((status) => {
+  if (!syncStatusEl) return;
+  const last = getLastSyncAt();
+  const lastText = last ? new Date(last).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '아직 없음';
+  if (status.state === 'syncing') syncStatusEl.textContent = '🔄 동기화 중...';
+  else if (status.state === 'error') syncStatusEl.textContent = `⚠️ 동기화 실패: ${status.message} (마지막 성공: ${lastText})`;
+  else syncStatusEl.textContent = `✅ 동기화 켜짐 · 마지막 동기화: ${lastText}`;
+  syncStatusEl.classList.toggle('error', status.state === 'error');
+  if (status.state === 'ok' && status.changed) refreshAfterSync();
+});
+
+async function startSyncWith(code) {
+  syncStatusEl.textContent = '🔄 연결하는 중...';
+  syncCodeVisible = !code; // 새로 만든 코드는 바로 보여 줌
+  try {
+    await enableSync(code);
+  } catch (e) {
+    disableSync();
+    alert(e.message);
+  }
+  renderSyncCard();
+  refreshAfterSync();
+}
+
+$('#sync-enable').addEventListener('click', () => startSyncWith());
+$('#sync-join-btn').addEventListener('click', () => {
+  const code = syncJoinInput.value;
+  if (!isValidCode(code)) { alert('동기화 코드는 26자리예요. 다른 기기에 표시된 코드를 그대로 입력해 주세요.'); return; }
+  syncJoinInput.value = '';
+  startSyncWith(code);
+});
+$('#sync-now').addEventListener('click', () => syncNow());
+syncCodeToggle.addEventListener('click', () => { syncCodeVisible = !syncCodeVisible; renderSyncCard(); });
+$('#sync-code-copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(formatCode(getSyncCode())); $('#sync-code-copy').textContent = '복사됨 ✓'; }
+  catch { syncCodeVisible = true; renderSyncCard(); }
+  setTimeout(() => { $('#sync-code-copy').textContent = '복사'; }, 1500);
+});
+$('#sync-disable').addEventListener('click', () => {
+  if (!confirm('이 기기의 동기화를 끌까요? 이 기기에 있는 단어장과 기록은 그대로 남아요.')) return;
+  disableSync();
+  renderSyncCard();
+});
+
+function loadQrLibrary() {
+  if (window.qrcode) return Promise.resolve(window.qrcode);
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = QRCODE_URL;
+    script.onload = () => resolve(window.qrcode);
+    script.onerror = () => reject(new Error('QR 코드 라이브러리를 불러오지 못했어요.'));
+    document.head.appendChild(script);
+  });
+}
+
+$('#sync-qr-btn').addEventListener('click', async () => {
+  if (syncQr.style.display !== 'none') { syncQr.style.display = 'none'; syncQr.innerHTML = ''; return; }
+  try {
+    const qrcode = await loadQrLibrary();
+    // 코드는 주소의 # 뒤에 넣음: # 뒤는 서버로 전송되지 않고, 연결 후 주소창에서 바로 지움
+    const link = `${location.origin}${location.pathname}#sync=${formatCode(getSyncCode())}`;
+    const qr = qrcode(0, 'M');
+    qr.addData(link);
+    qr.make();
+    syncQr.innerHTML = `${qr.createSvgTag(5, 10)}<p>다른 기기의 카메라로 찍으면 이 동기화에 연결돼요.<br>이 화면을 다른 사람에게 보여주지 마세요.</p>`;
+    syncQr.style.display = 'block';
+  } catch (e) {
+    alert(e.message);
+  }
+});
+
+// QR 링크(#sync=코드)로 열었을 때: 주소창에서 코드를 지우고, 확인 후 연결
+(function handleSyncLink() {
+  const match = location.hash.match(/^#sync=([0-9A-Za-z-]+)$/);
+  if (!match) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  const code = match[1];
+  if (!isValidCode(code)) return;
+  if (isSyncEnabled() && formatCode(getSyncCode()) === formatCode(code)) return;
+  const msg = isSyncEnabled()
+    ? '다른 동기화 코드로 연결할까요? 이 기기의 기존 동기화 연결은 해제되고, 이 기기의 데이터는 새 동기화와 합쳐져요.'
+    : '이 기기를 동기화에 연결할까요? 이 기기의 단어장과 기록이 다른 기기의 데이터와 합쳐져요.';
+  if (confirm(msg)) startSyncWith(code);
+})();
+
+renderSyncCard();
+if (isSyncEnabled()) syncNow();

@@ -14,6 +14,10 @@
   "placement": {
     "region": "gcp:us-central1"
   },
+  // 기기 간 동기화 저장소 (D1). database_id를 비워 두면 배포 시 Cloudflare가 자동으로 만들어 줌
+  "d1_databases": [
+    { "binding": "DB" }
+  ],
   // 대시보드에서 추가한 텍스트 변수(GEMINI_MODEL 등)가 배포할 때 지워지지 않도록 유지
   "keep_vars": true
 }

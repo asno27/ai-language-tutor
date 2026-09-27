@@ -1465,3 +1465,27 @@ body::after {
 .sh-detail b { color: var(--text-heading); }
 .sh-extra, .sh-heard { font-size: 0.88rem; color: rgba(255, 255, 255, 0.65); }
 .sh-ai-btn { align-self: flex-start; }
+
+/* === Sync (기기 간 동기화) === */
+.sync-join { display: flex; gap: 8px; margin-top: 1rem; align-items: center; }
+.sync-join .text-input { flex: 1; min-width: 0; margin: 0; }
+.sync-status { color: var(--text-body); font-size: 0.9rem; margin-bottom: 0.8rem; }
+.sync-status.error { color: var(--warning-1); }
+.sync-code-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 0.8rem; }
+.sync-code-label { font-size: 0.85rem; color: rgba(255, 255, 255, 0.6); }
+.sync-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 1px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--text-heading);
+  word-break: break-all;
+}
+.sync-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.sync-off-btn { background: rgba(255, 107, 107, 0.12); border-color: rgba(255, 107, 107, 0.35); }
+.sync-qr { margin-top: 1rem; text-align: center; }
+.sync-qr svg { background: #fff; border-radius: 10px; max-width: 240px; height: auto; }
+.sync-qr p { font-size: 0.85rem; color: rgba(255, 255, 255, 0.7); margin-top: 8px; }
+.sync-warn { font-size: 0.8rem; color: rgba(255, 255, 255, 0.55); margin-top: 0.8rem; }
