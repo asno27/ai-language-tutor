@@ -1,5 +1,6 @@
 ﻿import { callGemini, lookupDictionary, fetchYoutubeTranscript, getGeminiApiKey } from './api.js';
 import { SpeechManager, speak } from './speech.js';
+import { pickDailyScenes } from './prompts.js';
 import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount } from './vocabulary.js';
 
 // TTS 함수를 전역으로 노출 (innerHTML onclick에서 사용)
@@ -544,6 +545,22 @@ tabBtns.forEach(btn => {
 // === DAILY SENTENCE ===
 let currentDailySentence = null;
 
+// 이미 보여준 문장을 기억해 두고 AI에게 "반복하지 말라"고 전달
+const DAILY_HISTORY_KEY = 'daily_history';
+const DAILY_HISTORY_MAX = 60;
+const DAILY_AVOID_COUNT = 30;
+
+function loadDailyHistory() {
+  try { return JSON.parse(localStorage.getItem(DAILY_HISTORY_KEY)) || []; } catch { return []; }
+}
+
+function rememberDailySentences(data) {
+  const sentences = (data.themes || []).map(t => t.sentence).filter(Boolean);
+  if (!sentences.length) return;
+  const history = loadDailyHistory().filter(s => !sentences.includes(s));
+  localStorage.setItem(DAILY_HISTORY_KEY, JSON.stringify([...history, ...sentences].slice(-DAILY_HISTORY_MAX)));
+}
+
 async function loadDailySentence() {
   // Check if we already have today's sentence
   const stored = localStorage.getItem('daily_sentence');
@@ -565,7 +582,8 @@ async function generateDailySentence() {
   dailySentence.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">⏳</span><p>오늘의 추천 영어 표현들을 생성 중입니다...</p></div>`;
   dailyPractice.style.display = 'none';
   try {
-    const result = await callGemini('daily', {});
+    const avoid = loadDailyHistory().slice(-DAILY_AVOID_COUNT);
+    const result = await callGemini('daily', { scenes: pickDailyScenes(), avoid }, { temperature: 1.0 });
     const data = { ...result, date: new Date().toISOString() };
     localStorage.setItem('daily_sentence', JSON.stringify(data));
     displayDailySentence(data);
@@ -576,6 +594,7 @@ async function generateDailySentence() {
 
 function displayDailySentence(data) {
   currentDailySentence = data;
+  rememberDailySentences(data);
   let html = '';
   
   if (data.themes && Array.isArray(data.themes)) {

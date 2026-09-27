@@ -26,7 +26,10 @@ Respond ONLY with valid JSON exactly matching this structure:
 Rules:
 1. Sentences should be highly practical and natural.
 2. Words array should contain 2-3 key vocabulary or idioms used in the sentence.
-3. No other text outside JSON.`;
+3. No other text outside JSON.
+4. Each sentence MUST fit the specific scene given for its category in the user message.
+5. Avoid overused textbook idioms and clichés (e.g. "under the weather", "touch base", "piece of cake", "break the ice", "call it a day", "on the same page", "circle back", "hit the sack"). Prefer expressions native speakers actually use in that concrete situation that intermediate learners probably don't know yet.
+6. NEVER repeat or closely paraphrase any sentence in the "previously shown" list.`;
     case 'custom_example':
       return `You are a creative English teacher. Generate 2 custom example sentences for a given English word, strictly tailored to the user's specific interests (e.g., IT, gaming, cooking, sports).
 Respond ONLY with valid JSON: { "customExamples": [ { "en": "English sentence related to interests", "ko": "Korean translation" } ] }
@@ -62,8 +65,13 @@ export function getUserPrompt(mode, data) {
       return `Look up the following word and return the result in JSON format: ${data.word}`;
     case 'pronunciation':
       return `Evaluate this pronunciation and return the result in JSON format. Target: ${data.target}\nRecognized: ${data.recognized}`;
-    case 'daily':
-      return 'Generate 3 categorized English expressions (Travel, Business, Daily) in JSON format as instructed.';
+    case 'daily': {
+      const scenes = data.scenes || {};
+      let prompt = 'Generate 3 categorized English expressions (Travel, Business, Daily) in JSON format as instructed.';
+      if (scenes.travel) prompt += `\nScenes (one sentence per category):\n- 여행/식당: ${scenes.travel}\n- 비즈니스: ${scenes.business}\n- 일상: ${scenes.daily}`;
+      if (data.avoid?.length) prompt += `\nPreviously shown (do NOT repeat or closely paraphrase):\n${data.avoid.map(s => `- ${s}`).join('\n')}`;
+      return prompt;
+    }
     case 'custom_example':
       return `Generate custom examples in JSON format for the word "${data.word}" tailored to these interests: "${data.interests}"`;
     case 'nuance':
@@ -71,4 +79,40 @@ export function getUserPrompt(mode, data) {
     default:
       return '';
   }
+}
+
+// 오늘의 영어 추천: 매번 구체적인 상황을 무작위로 골라 같은 문장이 반복되지 않게 함
+const DAILY_SCENES = {
+  travel: [
+    'checking in at a hotel and the room is not ready yet', 'asking a waiter to recommend a local dish',
+    'customizing a coffee order', 'splitting the bill with friends at a restaurant', 'lost luggage at the airport',
+    'missing a connecting flight', 'asking about ingredients because of an allergy', 'complaining politely about a noisy hotel room',
+    'buying train tickets at a station', 'renting a car and asking about insurance', 'asking a stranger to take a photo',
+    'getting a table without a reservation', 'asking for the check and paying separately', 'going through airport security',
+    'asking for directions to a hidden local spot', 'sending food back because it is undercooked', 'requesting a late check-out',
+    'ordering takeaway at a food truck', 'asking about the Wi-Fi and breakfast hours', 'bargaining at a street market',
+  ],
+  business: [
+    'asking to push back a deadline', "giving feedback on a colleague's draft", 'politely declining an extra task',
+    'following up on an unanswered email', 'kicking off a video call when someone is late', 'handling a client complaint',
+    'asking for clarification in a meeting', 'onboarding a new team member', 'presenting a chart with bad numbers',
+    'negotiating the scope of a project', 'writing a polite Slack message to a manager', 'wrapping up a meeting with action items',
+    'disagreeing respectfully with a senior colleague', 'asking for a day off', 'reporting a bug to another team',
+    'thanking a coworker for covering for you', 'rescheduling a call across time zones', 'asking about next steps after an interview',
+    'explaining a delay to a client', 'summarizing a long email thread',
+  ],
+  daily: [
+    'texting a friend that you are running late', 'asking a neighbor to keep the noise down', 'returning an item at a store',
+    'recommending a TV series to a friend', "making a doctor's appointment by phone", 'telling a barber how you want your hair cut',
+    'asking a landlord to fix something', 'chatting with someone at the gym', 'borrowing something from a roommate',
+    'canceling plans at the last minute', "complimenting someone's cooking", 'talking about weekend plans with a coworker',
+    'asking for help carrying groceries', 'venting about a stressful day', 'calling customer service about an internet outage',
+    'walking a dog and meeting another dog owner', 'inviting a friend to a birthday dinner', 'apologizing for forgetting something',
+    'asking a pharmacist for advice', 'talking about a new hobby',
+  ],
+};
+
+export function pickDailyScenes() {
+  const pick = (list) => list[Math.floor(Math.random() * list.length)];
+  return { travel: pick(DAILY_SCENES.travel), business: pick(DAILY_SCENES.business), daily: pick(DAILY_SCENES.daily) };
 }

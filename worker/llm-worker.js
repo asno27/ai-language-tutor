@@ -26,6 +26,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 const MAX_INPUT_CHARS = 20000;
+const DEFAULT_TEMPERATURE = 0.3;
 
 // Worker 자신의 주소(*.workers.dev)에서 뜬 사이트도 허용
 function isAllowedOrigin(origin, request) {
@@ -57,7 +58,7 @@ function extractJson(text) {
   return JSON.parse((match ? match[0] : text).trim());
 }
 
-async function callGemini(env, systemPrompt, userMessage) {
+async function callGemini(env, systemPrompt, userMessage, temperature) {
   const model = env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const res = await fetch(url, {
@@ -66,7 +67,7 @@ async function callGemini(env, systemPrompt, userMessage) {
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: userMessage }] }],
       systemInstruction: { role: 'system', parts: [{ text: systemPrompt }] },
-      generationConfig: { temperature: 0.3, responseMimeType: 'application/json' },
+      generationConfig: { temperature: temperature ?? DEFAULT_TEMPERATURE, responseMimeType: 'application/json' },
     }),
   });
   if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
@@ -75,7 +76,7 @@ async function callGemini(env, systemPrompt, userMessage) {
   return extractJson(text);
 }
 
-async function callGroqModel(env, model, systemPrompt, userMessage) {
+async function callGroqModel(env, model, systemPrompt, userMessage, temperature) {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.GROQ_API_KEY}` },
@@ -86,6 +87,7 @@ async function callGroqModel(env, model, systemPrompt, userMessage) {
         { role: 'user', content: userMessage },
       ],
       response_format: { type: 'json_object' },
+      ...(temperature !== undefined && { temperature }),
     }),
   });
   if (!res.ok) throw new Error(`Groq ${model} ${res.status}: ${(await res.text()).slice(0, 200)}`);
@@ -93,12 +95,12 @@ async function callGroqModel(env, model, systemPrompt, userMessage) {
   return extractJson(data.choices?.[0]?.message?.content || '');
 }
 
-async function callGroq(env, systemPrompt, userMessage) {
+async function callGroq(env, systemPrompt, userMessage, temperature) {
   const models = [...new Set([env.GROQ_MODEL, ...DEFAULT_GROQ_MODELS].filter(Boolean))];
   const errors = [];
   for (const model of models) {
     try {
-      return { model, data: await callGroqModel(env, model, systemPrompt, userMessage) };
+      return { model, data: await callGroqModel(env, model, systemPrompt, userMessage, temperature) };
     } catch (e) {
       errors.push(String(e.message || e));
     }
@@ -131,6 +133,8 @@ export default {
     catch { return json({ success: false, detail: 'Invalid JSON body' }, 400, cors); }
 
     const { systemPrompt, userMessage } = body || {};
+    // 기능별 다양성 조절 (예: 오늘의 영어 추천은 높게). 없으면 기본값
+    const temperature = Number.isFinite(body?.temperature) ? Math.min(Math.max(body.temperature, 0), 1.5) : undefined;
     if (typeof systemPrompt !== 'string' || typeof userMessage !== 'string') {
       return json({ success: false, detail: 'systemPrompt and userMessage are required' }, 400, cors);
     }
@@ -143,7 +147,7 @@ export default {
     // 1순위: Gemini
     if (env.GEMINI_API_KEY) {
       try {
-        return json({ success: true, data: await callGemini(env, systemPrompt, userMessage), source: 'gemini' }, 200, cors);
+        return json({ success: true, data: await callGemini(env, systemPrompt, userMessage, temperature), source: 'gemini' }, 200, cors);
       } catch (e) {
         errors.push(String(e.message || e));
       }
@@ -152,7 +156,7 @@ export default {
     // 2순위: Groq
     if (env.GROQ_API_KEY) {
       try {
-        const { model, data } = await callGroq(env, systemPrompt, userMessage);
+        const { model, data } = await callGroq(env, systemPrompt, userMessage, temperature);
         return json({ success: true, data, source: 'groq', model }, 200, cors);
       } catch (e) {
         errors.push(String(e.message || e));

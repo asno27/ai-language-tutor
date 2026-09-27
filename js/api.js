@@ -39,12 +39,12 @@ function getPcServerBase() {
   return (savedUrl || PC_SERVER_URL).replace(/\/$/, '');
 }
 
-async function postLlm(url, systemPrompt, userMessage) {
+async function postLlm(url, systemPrompt, userMessage, options = {}) {
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
     // gemini_key/groq_key: PC 서버(main.py)의 요청 형식이 이 필드를 필수로 요구함. 실제 키는 서버 쪽에 있음
-    body: JSON.stringify({ systemPrompt, userMessage, gemini_key: getGeminiApiKey(), groq_key: getGroqApiKey() })
+    body: JSON.stringify({ systemPrompt, userMessage, temperature: options.temperature, gemini_key: getGeminiApiKey(), groq_key: getGroqApiKey() })
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.success) {
@@ -53,7 +53,8 @@ async function postLlm(url, systemPrompt, userMessage) {
   return result.data;
 }
 
-export async function callGemini(mode, data) {
+// options.temperature: 높을수록 다양한 답 (기본 0.3, 서버에서 0~1.5로 제한)
+export async function callGemini(mode, data, options = {}) {
   const systemPrompt = getSystemPrompt(mode);
   const userMessage = getUserPrompt(mode, data);
 
@@ -63,7 +64,7 @@ export async function callGemini(mode, data) {
 
   for (const backend of backends) {
     try {
-      return await postLlm(backend.url, systemPrompt, userMessage);
+      return await postLlm(backend.url, systemPrompt, userMessage, options);
     } catch (e) {
       console.warn(`${backend.name} /api/llm 실패:`, e);
     }
