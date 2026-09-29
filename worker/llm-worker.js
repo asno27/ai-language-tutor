@@ -169,7 +169,9 @@ export default {
     if (env.GROQ_API_KEY) {
       try {
         const { model, data } = await callGroq(env, systemPrompt, userMessage, temperature);
-        return json({ success: true, data, source: 'groq', model }, 200, cors);
+        // Gemini가 왜 실패했는지 남겨 둠 (브라우저 네트워크 탭과 Cloudflare 로그에서 확인용)
+        if (errors.length) console.warn('Gemini failed, used Groq:', errors[0]);
+        return json({ success: true, data, source: 'groq', model, fallbackReason: errors[0]?.slice(0, 300) }, 200, cors);
       } catch (e) {
         errors.push(String(e.message || e));
       }
