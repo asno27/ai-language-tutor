@@ -90,6 +90,8 @@ async function callGroqModel(env, model, systemPrompt, userMessage, temperature)
       ],
       response_format: { type: 'json_object' },
       ...(temperature !== undefined && { temperature }),
+      // gpt-oss는 추론형이라 기본 설정에선 긴 요청에 수십 초 걸림 → 추론을 짧게
+      ...(model.startsWith('openai/gpt-oss') && { reasoning_effort: 'low' }),
     }),
   });
   if (!res.ok) throw new Error(`Groq ${model} ${res.status}: ${(await res.text()).slice(0, 200)}`);
