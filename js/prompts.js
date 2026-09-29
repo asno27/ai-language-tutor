@@ -28,12 +28,27 @@ Rules:
 2. Words array should contain 2-3 key vocabulary or idioms used in the sentence.
 3. No other text outside JSON.
 4. Each sentence MUST fit the specific scene given for its category in the user message.
-5. Avoid overused textbook idioms and clichés (e.g. "under the weather", "touch base", "piece of cake", "break the ice", "call it a day", "on the same page", "circle back", "hit the sack"). Prefer expressions native speakers actually use in that concrete situation that intermediate learners probably don't know yet.
-6. NEVER repeat or closely paraphrase any sentence in the "previously shown" list.`;
+5. Avoid overused textbook idioms and clichés (e.g. "under the weather", "touch base", "piece of cake", "break the ice", "call it a day", "on the same page", "circle back", "hit the sack"). Prefer expressions native speakers actually use in that concrete situation that learners at the given level probably don't know yet.
+6. NEVER repeat or closely paraphrase any sentence in the "previously shown" list.
+7. Follow the learner level rule in the user message for sentence length, grammar and vocabulary.`;
     case 'custom_example':
       return `You are a creative English teacher. Generate 2 custom example sentences for a given English word, strictly tailored to the user's specific interests (e.g., IT, gaming, cooking, sports).
 Respond ONLY with valid JSON: { "customExamples": [ { "en": "English sentence related to interests", "ko": "Korean translation" } ] }
-The sentences must naturally use the target word and strongly relate to the provided interests.`;
+The sentences must naturally use the target word and strongly relate to the provided interests, and follow the learner level rule given in the user message.`;
+    case 'examples':
+      return `You write practical example sentences for Korean learners of English on a given topic.
+Respond ONLY with valid JSON:
+{
+  "examples": [
+    { "sentence": "natural English sentence", "ko": "natural Korean translation", "keyVocabulary": [{ "word": "word or phrase exactly as it appears in the sentence", "meaning": "Korean meaning in this context" }] }
+  ]
+}
+Rules:
+1. Exactly 5 examples, each from a different concrete situation within the topic (not 5 variations of one scene).
+2. Sentences must sound like what native speakers really say or write today, and strictly follow the learner level rule in the user message.
+3. keyVocabulary: 1-3 items per sentence, copied exactly as they appear in the sentence. Skip very basic words.
+4. NEVER repeat or closely paraphrase any sentence in the "previously shown" list.
+5. No other text outside JSON.`;
     case 'pdf_worksheet':
       return `You turn an English reading passage into study material for Korean learners.
 Respond ONLY with valid JSON:
@@ -102,11 +117,17 @@ export function getUserPrompt(mode, data) {
       const scenes = data.scenes || {};
       let prompt = 'Generate 3 categorized English expressions (Travel, Business, Daily) in JSON format as instructed.';
       if (scenes.travel) prompt += `\nScenes (one sentence per category):\n- 여행/식당: ${scenes.travel}\n- 비즈니스: ${scenes.business}\n- 일상: ${scenes.daily}`;
+      prompt += `\nLearner level: ${getLevelRule(data.level)}`;
       if (data.avoid?.length) prompt += `\nPreviously shown (do NOT repeat or closely paraphrase):\n${data.avoid.map(s => `- ${s}`).join('\n')}`;
       return prompt;
     }
     case 'custom_example':
-      return `Generate custom examples in JSON format for the word "${data.word}" tailored to these interests: "${data.interests}"`;
+      return `Generate custom examples in JSON format for the word "${data.word}" tailored to these interests: "${data.interests}"\nLearner level: ${getLevelRule(data.level)}`;
+    case 'examples': {
+      let prompt = `Topic: ${data.topic}\nLearner level: ${getLevelRule(data.level)}`;
+      if (data.avoid?.length) prompt += `\nPreviously shown (do NOT repeat or closely paraphrase):\n${data.avoid.map(s => `- ${s}`).join('\n')}`;
+      return prompt + '\nWrite 5 example sentences in JSON as instructed.';
+    }
     case 'pdf_worksheet':
       return `Passage:\n\"\"\"\n${data.text}\n\"\"\"\nCreate the study material in JSON as instructed.`;
     case 'roleplay': {
@@ -178,3 +199,32 @@ const ROLEPLAY_LEVELS = {
   intermediate: 'Intermediate (CEFR B1-B2): everyday conversational English with some linking words and common phrasal verbs, 10-18 words per sentence.',
   advanced: 'Advanced (CEFR C1-C2): natural native-speed English with idioms, nuance and realistic small talk.',
 };
+
+// 레벨 시스템 (Phase 3.2): 앱 레벨 3단계 ↔ CEFR / JLPT / DELE 대응. 모든 AI 생성 문장에 "문장 규칙"을 붙임
+export const LEVELS = {
+  basic: { label: '기초', exams: { en: 'CEFR A1~A2', ja: 'JLPT N5~N4', es: 'DELE A1~A2' } },
+  intermediate: { label: '중급', exams: { en: 'CEFR B1~B2', ja: 'JLPT N3~N2', es: 'DELE B1~B2' } },
+  advanced: { label: '고급', exams: { en: 'CEFR C1~C2', ja: 'JLPT N1', es: 'DELE C1~C2' } },
+};
+export const DEFAULT_LEVEL = 'intermediate';
+
+const LEVEL_RULES = {
+  basic: 'Beginner ({exam}). Short simple sentences of at most 8 words, present and simple past tense only, very common everyday words. No idioms or phrasal verbs beyond the most common ones.',
+  intermediate: 'Intermediate ({exam}). Sentences of 10-18 words that may combine clauses with conjunctions or relative clauses and use perfect tenses or conditionals where natural. Common phrasal verbs and collocations are welcome.',
+  advanced: 'Advanced ({exam}). Sentences of 20 words or more with idioms, nuanced word choice and natural native-level phrasing, as heard in real conversation, media or professional writing.',
+};
+
+export function getLevelRule(level, lang = 'en') {
+  const key = LEVELS[level] ? level : DEFAULT_LEVEL;
+  return LEVEL_RULES[key].replace('{exam}', LEVELS[key].exams[lang] || LEVELS[key].exams.en);
+}
+
+// 주제별 예문 생성기 (Phase 3.3)
+export const EXAMPLE_TOPICS = [
+  { id: 'business', label: '💼 비즈니스·이메일', topic: 'business: meetings, work emails, negotiations and office communication' },
+  { id: 'travel', label: '✈️ 여행·식당', topic: 'travel: airports, hotels, restaurants, shopping and asking for help abroad' },
+  { id: 'it', label: '💻 IT·개발', topic: 'software development and IT work: code reviews, bugs, deployments, standups and tech discussions' },
+  { id: 'feelings', label: '🏠 일상·감정', topic: 'everyday life and expressing feelings, opinions and reactions with friends and family' },
+  { id: 'interests', label: '🎯 내 관심사', topic: '' },
+  { id: 'custom', label: '✏️ 직접 입력', topic: '' },
+];

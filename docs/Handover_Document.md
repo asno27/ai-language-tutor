@@ -84,10 +84,12 @@
 | 단어장 | `js/vocabulary.js` (SM-2 복습) | 하단에 🔄 동기화 카드 |
 | 오늘의 영어 추천 | prompts `daily`, `pickDailyScenes()` | 반복 방지 + 📅 달력 아카이브(`daily_archive`) |
 | 인터랙티브 학습지 | `data/worksheet.json` + "PDF WORKSHEET" | 📄 PDF 업로드 → 요약·핵심 단어·빈칸·쉐도잉 (pdf.js 6.3.289, cdnjs) |
+| 🧩 주제별 예문 | `app.js` "주제별 예문 (Phase 3.3)", prompts `examples`, `EXAMPLE_TOPICS` | 레벨×주제 캐시 |
+| 📚 자료실 | `data/resources.json` + `app.js` "자료실 (Phase 3.1)" | 저작권 자료는 링크만 |
 | 유튜브 번역 | PC 서버 필요 | |
 
 ### 2.5. localStorage 키 (이 기기에만 저장되는 데이터)
-`ai_tutor_vocabulary`(단어장), `daily_sentence`(오늘 캐시), `daily_archive`(달력), `daily_history`(구버전 반복 방지 목록, 읽기만), `vocab_interests`/`vocab_interests_at`, `pdf_ws_index`/`pdf_ws_<해시>`(PDF 분석 캐시), `sync_code`/`sync_since`/`sync_pending`/`sync_last_at`(동기화).
+`ai_tutor_vocabulary`(단어장), `daily_sentence`(오늘 캐시), `daily_archive`(달력), `daily_history`(구버전 반복 방지 목록, 읽기만), `vocab_interests`/`vocab_interests_at`, `pdf_ws_index`/`pdf_ws_<해시>`(PDF 분석 캐시), `sync_code`/`sync_since`/`sync_pending`/`sync_last_at`(동기화), `user_level`/`user_level_at`(내 레벨, 동기화됨), `examples_en_<레벨>_<주제>`/`examples_index`(주제별 예문 캐시).
 
 ---
 
@@ -126,4 +128,6 @@ server/requirements.txt  PC 서버 의존성 (서버 코드는 저장소에 없�
 - 🔒 **보안**: 예전 공개 저장소 `asno27/language`에 `server/cookies.txt`(유튜브 쿠키)와 `server/run_server.bat`(ngrok 토큰)이 공개되어 있음 → 구글 "모든 기기 로그아웃", ngrok 토큰 재발급, 파일 삭제 필요. `push_to_github.py`의 GitHub 토큰도 폐기 권장.
 - `push_to_github.py`의 `LOCAL_DIR`이 `C:\Users\user\...`로 되어 있어 현재 PC에서 동작 안 함 (예전 사이트 배포용이라 현재는 사용하지 않음).
 - 발음 채점: 동음이의어(weather/whether)를 틀림으로 표시하는 한계.
-- 다음 우선순위: `docs/Future_Implementation_Plan.md` 권장 작업 순서 표의 Phase 3 (자료실·레벨·주제별 예문).
+- Phase 3.1~3.3 완료(2026-09-29). 다음 우선순위: Phase 4 다국어(사용자가 보류 중) 또는 3.4 퍼블릭 도메인 코퍼스.
+- 레벨 규칙은 `js/prompts.js`의 `LEVELS`/`getLevelRule()`. 새 AI 생성 기능에는 `level: getUserLevel()`을 넘겨 프롬프트에 붙일 것.
+- 유튜브 탭에서 ngrok 로그에 `502 Bad Gateway`가 찍히면 ngrok은 켜져 있지만 PC의 Python 서버(localhost:8000)가 꺼진 것 → `run_server.bat` 재실행.

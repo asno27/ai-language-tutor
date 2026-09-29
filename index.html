@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=8">
+  <link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
   <div id="app">
@@ -20,6 +20,15 @@
           <span class="title-text">AI Language Tutor</span>
         </h1>
         <p class="app-subtitle">Your personal English learning companion</p>
+        <div class="level-picker">
+          <label for="user-level">📶 내 레벨</label>
+          <select id="user-level" class="roleplay-select">
+            <option value="basic">기초 · CEFR A1~A2</option>
+            <option value="intermediate">중급 · CEFR B1~B2</option>
+            <option value="advanced">고급 · CEFR C1~C2</option>
+          </select>
+          <span class="level-hint">AI가 만드는 모든 예문이 이 수준에 맞춰져요</span>
+        </div>
       </div>
     </header>
 
@@ -53,9 +62,17 @@
         <span class="tab-icon">📺</span>
         <span class="tab-label">오늘의 영어 추천</span>
       </button>
+      <button class="tab-btn" data-tab="examples">
+        <span class="tab-icon">🧩</span>
+        <span class="tab-label">주제별 예문</span>
+      </button>
       <button class="tab-btn" data-tab="worksheet">
         <span class="tab-icon">📖</span>
         <span class="tab-label">인터랙티브 학습지</span>
+      </button>
+      <button class="tab-btn" data-tab="resources">
+        <span class="tab-icon">📚</span>
+        <span class="tab-label">자료실</span>
       </button>
       <button class="tab-btn" data-tab="youtube">
         <span class="tab-icon">▶️</span>
@@ -403,6 +420,40 @@
         </div>
       </section>
 
+      <!-- Topic Examples Pane (Phase 3.3) -->
+      <section class="tab-pane" id="pane-examples">
+        <div class="glass-card input-card">
+          <div class="card-header">
+            <h2>🧩 주제별 예문</h2>
+            <p class="card-desc">주제를 고르면 내 레벨에 맞는 실전 예문 5개를 만들어 드려요. 핵심 단어는 바로 단어장에 담을 수 있어요</p>
+          </div>
+          <div class="roleplay-scenarios" id="examples-topics"></div>
+          <input type="text" id="examples-custom" class="text-input" style="display:none;" placeholder="주제를 직접 입력하세요 (예: 헬스장, 이사, 주식 투자)">
+          <div class="input-actions">
+            <span class="examples-level" id="examples-level"></span>
+            <button class="submit-btn" id="examples-submit"><span class="btn-text">예문 보기</span><span class="btn-icon">→</span></button>
+          </div>
+        </div>
+        <div class="glass-card output-card" id="examples-output">
+          <div class="placeholder-message">
+            <span class="placeholder-icon">🧩</span>
+            <p>주제를 고르고 [예문 보기]를 눌러 주세요. 한 번 받은 예문은 이 기기에 저장돼요</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Resources Pane (Phase 3.1) -->
+      <section class="tab-pane" id="pane-resources">
+        <div class="glass-card">
+          <div class="card-header">
+            <h2>📚 무료 학습 자료실</h2>
+            <p class="card-desc">믿을 만한 무료 자료를 모아 뒀어요. 저작권이 있는 자료는 링크로만 연결하고, PDF 모의고사는 내려받아 [인터랙티브 학습지]에 올리면 내 브라우저 안에서만 분석해요</p>
+          </div>
+          <div class="roleplay-scenarios" id="resources-filter"></div>
+          <div class="resources-list" id="resources-list"></div>
+        </div>
+      </section>
+
       <!-- YouTube Translation Pane -->
       <section class="tab-pane" id="pane-youtube">
         <div class="glass-card input-card">
@@ -473,7 +524,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=10"></script>
+  <script type="module" src="js/app.js?v=11"></script>
 
 
 

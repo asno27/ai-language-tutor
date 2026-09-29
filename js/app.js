@@ -1,6 +1,6 @@
 ﻿import { callGemini, lookupDictionary, fetchYoutubeTranscript, getGeminiApiKey } from './api.js';
 import { SpeechManager, speak } from './speech.js';
-import { pickDailyScenes, ROLEPLAY_SCENARIOS } from './prompts.js';
+import { pickDailyScenes, ROLEPLAY_SCENARIOS, LEVELS, DEFAULT_LEVEL, EXAMPLE_TOPICS } from './prompts.js';
 import { compareWords } from './shadowing.js';
 import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount, applyRemoteVocab, collectAllVocab } from './vocabulary.js';
 import { registerSyncKind, queueChange, onSyncStatus, enableSync, disableSync, syncNow, isSyncEnabled, getSyncCode, formatCode, isValidCode, getLastSyncAt } from './sync.js';
@@ -291,6 +291,33 @@ function showError(el, msg) {
   el.innerHTML = `<div class="result-section fade-in"><div class="result-label warning">⚠️ 오류</div><div class="result-text">${escapeHtml(msg)}</div></div>`;
 }
 
+// === 레벨 시스템 (Phase 3.2) ===
+// user_level: 'basic' | 'intermediate' | 'advanced'. 오늘의 영어·맞춤 예문·주제별 예문·역할극 기본 난이도에 적용
+const USER_LEVEL_KEY = 'user_level';
+const userLevelSelect = $('#user-level');
+const levelListeners = [];
+
+function getUserLevel() {
+  const v = localStorage.getItem(USER_LEVEL_KEY);
+  return LEVELS[v] ? v : DEFAULT_LEVEL;
+}
+
+function onLevelChange(fn) { levelListeners.push(fn); }
+
+function applyUserLevelUi() {
+  userLevelSelect.value = getUserLevel();
+  levelListeners.forEach(fn => fn(getUserLevel()));
+}
+
+userLevelSelect.addEventListener('change', () => {
+  const value = userLevelSelect.value;
+  const at = Date.now();
+  localStorage.setItem(USER_LEVEL_KEY, value);
+  localStorage.setItem(`${USER_LEVEL_KEY}_at`, String(at));
+  queueChange('setting', USER_LEVEL_KEY, { value }, { updatedAt: at });
+  applyUserLevelUi();
+});
+
 // === WRITING ===
 function renderWritingResult(data) {
   let html = '';
@@ -381,7 +408,7 @@ function renderDictionaryResult(dictData, llmData) {
       const interests = localStorage.getItem('vocab_interests') || '';
       if (interests.trim()) {
         try {
-          const res = await callGemini('custom_example', { word: word, interests: interests });
+          const res = await callGemini('custom_example', { word: word, interests: interests, level: getUserLevel() });
           if (res && res.customExamples) {
             customExamples = res.customExamples;
           }
@@ -611,7 +638,7 @@ async function generateDailySentence() {
   dailyPractice.style.display = 'none';
   try {
     const avoid = getRecentDailySentences(DAILY_AVOID_COUNT);
-    const result = await callGemini('daily', { scenes: pickDailyScenes(), avoid }, { temperature: 1.0 });
+    const result = await callGemini('daily', { scenes: pickDailyScenes(), avoid, level: getUserLevel() }, { temperature: 1.0 });
     const data = { ...result, date: new Date().toISOString() };
     localStorage.setItem('daily_sentence', JSON.stringify(data));
     saveToDailyArchive(data);
@@ -1203,6 +1230,9 @@ const ROLEPLAY_HISTORY_LIMIT = 12; // AI에게 보내는 최근 대화 수 (요�
 let roleplayScenarioId = ROLEPLAY_SCENARIOS[0].id;
 let roleplaySession = null;        // { scenario, aiRole, userRole, level, title, history: [{role, text}], ended }
 let roleplayBusy = false;
+
+// 역할극 난이도는 내 레벨을 기본값으로 (대화마다 바꿀 수 있음)
+onLevelChange(level => { if (!roleplaySession) roleplayLevel.value = level; });
 
 roleplayScenarios.innerHTML = ROLEPLAY_SCENARIOS.map(s =>
   `<button class="roleplay-chip${s.id === roleplayScenarioId ? ' active' : ''}" data-id="${s.id}">${escapeHtml(s.label)}</button>`
@@ -1807,6 +1837,7 @@ function refreshAfterSync() {
   if (dailyArchive.style.display !== 'none') renderArchive();
   const interests = document.getElementById('vocab-interests');
   if (interests && document.activeElement !== interests) interests.value = localStorage.getItem('vocab_interests') || '';
+  applyUserLevelUi();
 }
 
 registerSyncKind('vocab', {
@@ -1837,22 +1868,27 @@ registerSyncKind('daily_set', {
   },
 });
 
+// 설정 값: 키별로 더 최근에 바꾼 쪽이 이김. 수정 시각은 `${키}_at`에 보관
+const SYNCED_SETTINGS = ['vocab_interests', USER_LEVEL_KEY];
+
 registerSyncKind('setting', {
   apply(changes) {
     let changed = false;
     for (const c of changes) {
-      if (c.id !== 'vocab_interests' || c.deleted) continue;
-      const localAt = Number(localStorage.getItem('vocab_interests_at')) || 0;
+      if (!SYNCED_SETTINGS.includes(c.id) || c.deleted) continue;
+      const localAt = Number(localStorage.getItem(`${c.id}_at`)) || 0;
       if (localAt >= c.updatedAt) continue;
-      localStorage.setItem('vocab_interests', c.data?.value || '');
-      localStorage.setItem('vocab_interests_at', String(c.updatedAt));
+      localStorage.setItem(c.id, c.data?.value || '');
+      localStorage.setItem(`${c.id}_at`, String(c.updatedAt));
       changed = true;
     }
     return changed;
   },
   collectAll() {
-    const value = localStorage.getItem('vocab_interests') || '';
-    return value ? [{ id: 'vocab_interests', data: { value }, updatedAt: Number(localStorage.getItem('vocab_interests_at')) || 1 }] : [];
+    return SYNCED_SETTINGS.flatMap(key => {
+      const value = localStorage.getItem(key) || '';
+      return value ? [{ id: key, data: { value }, updatedAt: Number(localStorage.getItem(`${key}_at`)) || 1 }] : [];
+    });
   },
 });
 
@@ -1963,3 +1999,273 @@ $('#sync-qr-btn').addEventListener('click', async () => {
 
 renderSyncCard();
 if (isSyncEnabled()) syncNow();
+
+// === 주제별 예문 (Phase 3.3) ===
+// 레벨 × 주제별로 예문 5개. 결과는 examples_en_{레벨}_{주제} 키로 이 기기에 저장하고, [새 예문 받기] 때만 다시 호출
+const examplesTopics = $('#examples-topics');
+const examplesCustom = $('#examples-custom');
+const examplesLevelEl = $('#examples-level');
+const examplesSubmit = $('#examples-submit');
+const examplesOutput = $('#examples-output');
+const examplesSpeech = new SpeechManager();
+const EXAMPLES_INDEX_KEY = 'examples_index';
+const EXAMPLES_MAX_CACHED = 30;   // 저장해 두는 주제 수 (오래된 것부터 삭제)
+const EXAMPLES_AVOID_COUNT = 30;  // AI에게 "반복하지 말라"고 보내는 이전 예문 수
+let examplesTopicId = EXAMPLE_TOPICS[0].id;
+let examplesBusy = false;
+let examplesShadowTarget = null;  // { text, resultEl, btn }
+
+examplesTopics.innerHTML = EXAMPLE_TOPICS.map(t =>
+  `<button class="roleplay-chip${t.id === examplesTopicId ? ' active' : ''}" data-id="${t.id}">${escapeHtml(t.label)}</button>`
+).join('');
+
+examplesTopics.addEventListener('click', (e) => {
+  const chip = e.target.closest('.roleplay-chip');
+  if (!chip || examplesBusy) return;
+  examplesTopicId = chip.dataset.id;
+  examplesTopics.querySelectorAll('.roleplay-chip').forEach(c => c.classList.toggle('active', c === chip));
+  examplesCustom.style.display = examplesTopicId === 'custom' ? 'block' : 'none';
+  if (examplesTopicId === 'custom') { examplesCustom.focus(); return; }
+  showExamples(false);
+});
+examplesCustom.addEventListener('keydown', (e) => { if (e.key === 'Enter') showExamples(false); });
+examplesSubmit.addEventListener('click', () => showExamples(false));
+
+onLevelChange(level => {
+  examplesLevelEl.textContent = `📶 ${LEVELS[level].label} 레벨 (${LEVELS[level].exams.en}) 예문`;
+});
+
+function resolveExampleTopic() {
+  const preset = EXAMPLE_TOPICS.find(t => t.id === examplesTopicId);
+  if (preset.id === 'custom') {
+    const text = examplesCustom.value.trim();
+    if (!text) return { error: '주제를 먼저 입력해 주세요 (예: 헬스장, 이사, 주식 투자)' };
+    return { key: `custom:${text.toLowerCase().slice(0, 60)}`, topic: text, title: `✏️ ${text}` };
+  }
+  if (preset.id === 'interests') {
+    const text = (localStorage.getItem('vocab_interests') || '').trim();
+    if (!text) return { error: '단어장 탭의 🎯 내 관심사를 먼저 입력해 주세요 (예: IT, 요리, 게임)' };
+    return { key: `interests:${text.toLowerCase().slice(0, 60)}`, topic: `the learner's personal interests: ${text}`, title: `🎯 ${text}` };
+  }
+  return { key: preset.id, topic: preset.topic, title: preset.label };
+}
+
+const examplesCacheKey = (level, key) => `examples_en_${level}_${key}`;
+
+function loadExamples(cacheKey) {
+  try { return JSON.parse(localStorage.getItem(cacheKey)); } catch { return null; }
+}
+
+function saveExamples(cacheKey, entry) {
+  let index = [];
+  try { index = JSON.parse(localStorage.getItem(EXAMPLES_INDEX_KEY)) || []; } catch {}
+  index = [cacheKey, ...index.filter(k => k !== cacheKey)];
+  index.slice(EXAMPLES_MAX_CACHED).forEach(k => localStorage.removeItem(k));
+  index = index.slice(0, EXAMPLES_MAX_CACHED);
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify(entry));
+    localStorage.setItem(EXAMPLES_INDEX_KEY, JSON.stringify(index));
+  } catch (e) { console.warn('예문 저장 실패', e); }
+}
+
+function showExamplesMessage(icon, text) {
+  examplesOutput.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">${icon}</span><p>${escapeHtml(text)}</p></div>`;
+}
+
+async function showExamples(forceNew) {
+  if (examplesBusy) return;
+  const t = resolveExampleTopic();
+  if (t.error) { showExamplesMessage('✏️', t.error); return; }
+  const level = getUserLevel();
+  const cacheKey = examplesCacheKey(level, t.key);
+  const cached = loadExamples(cacheKey);
+  if (cached?.examples?.length && !forceNew) { renderExamples(cached, cacheKey); return; }
+
+  examplesBusy = true;
+  examplesSubmit.disabled = true;
+  showExamplesMessage('⏳', `${LEVELS[level].label} 레벨 예문을 만들고 있어요...`);
+  try {
+    const avoid = (cached?.seen || []).slice(-EXAMPLES_AVOID_COUNT);
+    const result = await callGemini('examples', { topic: t.topic, level, avoid }, { temperature: 0.9 });
+    const examples = (result?.examples || []).filter(ex => ex?.sentence).slice(0, 5);
+    if (!examples.length) throw new Error('예문을 받지 못했어요. 다시 시도해 주세요.');
+    const entry = {
+      at: new Date().toISOString(), title: t.title, level, examples,
+      seen: [...(cached?.seen || []), ...examples.map(ex => ex.sentence)].slice(-EXAMPLES_AVOID_COUNT * 2),
+    };
+    saveExamples(cacheKey, entry);
+    renderExamples(entry, cacheKey);
+  } catch (e) {
+    if (cached?.examples?.length) {
+      renderExamples(cached, cacheKey);
+      examplesOutput.insertAdjacentHTML('afterbegin', `<div class="pdf-section-msg error">⚠️ 새 예문을 받지 못해 저장된 예문을 보여드려요: ${escapeHtml(e.message)}</div>`);
+    } else {
+      showExamplesMessage('⚠️', `예문 생성에 실패했습니다: ${e.message}`);
+    }
+  } finally {
+    examplesBusy = false;
+    examplesSubmit.disabled = false;
+  }
+}
+
+function renderExamples(entry, cacheKey) {
+  examplesShadowTarget = null;
+  const level = LEVELS[entry.level] || LEVELS[DEFAULT_LEVEL];
+  const when = new Date(entry.at);
+  let html = `
+    <div class="ex-head">
+      <div>
+        <div class="ex-title">${escapeHtml(entry.title)}</div>
+        <div class="ex-meta">${escapeHtml(level.label)} 레벨 · ${when.getMonth() + 1}월 ${when.getDate()}일에 받은 예문</div>
+      </div>
+      <button class="audio-btn ex-refresh">🎲 새 예문 받기</button>
+    </div>`;
+  entry.examples.forEach((ex, i) => {
+    const vocab = (ex.keyVocabulary || []).filter(v => v?.word);
+    html += `
+      <div class="ex-card fade-in" data-i="${i}">
+        <div class="ex-sentence"><span class="ex-num">${i + 1}</span><span class="ex-text">${highlightPassage(ex.sentence, vocab)}</span></div>
+        ${ex.ko ? `<div class="ex-ko">${escapeHtml(ex.ko)}</div>` : ''}
+        <div class="ex-actions">
+          <button class="rp-tool" data-action="speak">🔊 듣기</button>
+          <button class="rp-tool" data-action="record">🎤 따라 읽기</button>
+        </div>
+        ${vocab.map((v, j) => `
+          <div class="pdf-vocab-row">
+            <span class="pdf-vocab-word">${escapeHtml(v.word)}</span>
+            <span class="pdf-vocab-meaning">${escapeHtml(v.meaning || '')}</span>
+            <button class="pdf-save-btn${isWordSaved(v.word) ? ' saved' : ''}" data-j="${j}"${isWordSaved(v.word) ? ' disabled' : ''}>${isWordSaved(v.word) ? '✅ 저장됨' : '+ 단어장'}</button>
+          </div>`).join('')}
+        <div class="ex-shadow-result"></div>
+      </div>`;
+  });
+  examplesOutput.innerHTML = html;
+  examplesOutput.querySelectorAll('.ex-text').forEach(n => makeTextClickable(n));
+  examplesOutput.querySelector('.ex-refresh').addEventListener('click', () => showExamples(true));
+
+  examplesOutput.querySelectorAll('.ex-card').forEach(card => {
+    const ex = entry.examples[card.dataset.i];
+    const vocab = (ex.keyVocabulary || []).filter(v => v?.word);
+    card.querySelector('[data-action="speak"]').addEventListener('click', () => speak(ex.sentence));
+    const micBtn = card.querySelector('[data-action="record"]');
+    if (!examplesSpeech.isSupported) micBtn.style.display = 'none';
+    micBtn.addEventListener('click', () => {
+      if (examplesSpeech.isListening) { examplesSpeech.stop(); return; }
+      examplesShadowTarget = { text: ex.sentence, resultEl: card.querySelector('.ex-shadow-result'), btn: micBtn };
+      window.speechSynthesis?.cancel();
+      examplesSpeech.start();
+    });
+    card.querySelectorAll('.pdf-save-btn').forEach(btn => btn.addEventListener('click', () => {
+      const v = vocab[btn.dataset.j];
+      if (saveWord({ word: v.word, meanings: [{ partOfSpeech: '뜻', definitions: [v.meaning || ''] }], customExamples: [{ en: ex.sentence, ko: ex.ko || '' }] })) {
+        btn.textContent = '✅ 저장됨'; btn.classList.add('saved'); btn.disabled = true;
+        updateVocabStats();
+      }
+    }));
+  });
+}
+
+function resetExamplesMic() {
+  if (!examplesShadowTarget) return;
+  examplesShadowTarget.btn.classList.remove('recording');
+  examplesShadowTarget.btn.textContent = '🎤 따라 읽기';
+}
+examplesSpeech.onStart = () => {
+  if (!examplesShadowTarget) return;
+  examplesShadowTarget.btn.classList.add('recording');
+  examplesShadowTarget.btn.textContent = '⏹️ 다 읽었어요';
+  examplesShadowTarget.resultEl.innerHTML = '<div class="pdf-section-msg">🔴 듣고 있어요... 문장을 소리 내어 읽어 주세요</div>';
+};
+examplesSpeech.onInterim = (text) => {
+  if (examplesShadowTarget) examplesShadowTarget.resultEl.innerHTML = `<div class="pdf-section-msg">🎙️ ${escapeHtml(text)}</div>`;
+};
+examplesSpeech.onEnd = resetExamplesMic;
+examplesSpeech.onError = (error) => {
+  if (!examplesShadowTarget) return;
+  resetExamplesMic();
+  examplesShadowTarget.resultEl.innerHTML = `<div class="pdf-section-msg error">${error === 'not-allowed' ? '⚠️ 마이크 권한이 필요합니다.' : '⚠️ 음성이 인식되지 않았어요. 다시 시도해 주세요.'}</div>`;
+};
+examplesSpeech.onResult = (text) => {
+  if (examplesShadowTarget) renderShadowingFeedback(examplesShadowTarget.resultEl, examplesShadowTarget.text, text);
+};
+
+// === 자료실 (Phase 3.1) ===
+// 저작권 있는 자료는 링크만. PDF 자료는 내려받아 학습지 탭에 올리면 브라우저 안에서만 분석
+const resourcesFilter = $('#resources-filter');
+const resourcesList = $('#resources-list');
+const RESOURCE_LANGS = [
+  { id: 'en', label: '🇺🇸 영어' }, { id: 'ja', label: '🇯🇵 일본어' }, { id: 'es', label: '🇪🇸 스페인어' }, { id: 'all', label: '전체' },
+];
+const RESOURCE_LICENSES = {
+  'public-domain': { label: '퍼블릭 도메인', cls: 'free' },
+  'cc-by': { label: 'CC BY · 출처 표기', cls: 'cc' },
+  'cc-by-sa': { label: 'CC BY-SA · 출처 표기', cls: 'cc' },
+  copyright: { label: '저작권 있음 · 링크만', cls: 'link' },
+};
+let resourcesLang = 'en';
+let resourcesData = null;
+
+resourcesFilter.innerHTML = RESOURCE_LANGS.map(l =>
+  `<button class="roleplay-chip${l.id === resourcesLang ? ' active' : ''}" data-id="${l.id}">${l.label}</button>`
+).join('');
+resourcesFilter.addEventListener('click', (e) => {
+  const chip = e.target.closest('.roleplay-chip');
+  if (!chip) return;
+  resourcesLang = chip.dataset.id;
+  resourcesFilter.querySelectorAll('.roleplay-chip').forEach(c => c.classList.toggle('active', c === chip));
+  renderResources();
+});
+
+async function loadResources() {
+  if (resourcesData) return;
+  resourcesList.innerHTML = '<div class="placeholder-message"><span class="placeholder-icon">⏳</span><p>자료 목록을 불러오는 중...</p></div>';
+  try {
+    const res = await fetch('data/resources.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    resourcesData = (await res.json()).resources || [];
+    renderResources();
+  } catch (e) {
+    resourcesList.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">⚠️</span><p>자료 목록을 불러오지 못했어요: ${escapeHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderResources() {
+  if (!resourcesData) return;
+  const items = resourcesData.filter(r => resourcesLang === 'all' || r.lang === resourcesLang);
+  const flag = { en: '🇺🇸', ja: '🇯🇵', es: '🇪🇸' };
+  resourcesList.innerHTML = items.map((r, i) => {
+    const lic = RESOURCE_LICENSES[r.license] || RESOURCE_LICENSES.copyright;
+    const safeUrl = /^https:\/\//.test(r.url) ? r.url : '#';
+    let pdfPart = '';
+    if (r.type === 'pdf') {
+      pdfPart = r.lang === 'en'
+        ? `<button class="audio-btn res-pdf-btn" data-i="${i}">📄 PDF 학습지로 열기</button>`
+        : '<span class="res-note">※ 일본어·스페인어 PDF 분석은 다국어 지원(Phase 4) 이후 가능해요</span>';
+    }
+    return `
+      <div class="res-card fade-in">
+        <div class="res-top">
+          <span class="res-title">${flag[r.lang] || ''} ${escapeHtml(r.title)}</span>
+          ${r.level ? `<span class="res-badge level">${escapeHtml(r.level)}</span>` : ''}
+          <span class="res-badge ${lic.cls}">${lic.label}</span>
+        </div>
+        <div class="res-desc">${escapeHtml(r.desc || '')}</div>
+        <div class="res-actions">
+          <a class="audio-btn res-link" href="${escapeAttr(safeUrl)}" target="_blank" rel="noopener noreferrer">사이트 열기 ↗</a>
+          ${pdfPart}
+        </div>
+      </div>`;
+  }).join('') || '<div class="placeholder-message"><span class="placeholder-icon">📭</span><p>이 언어의 자료가 아직 없어요</p></div>';
+
+  resourcesList.querySelectorAll('.res-pdf-btn').forEach(btn => btn.addEventListener('click', () => {
+    $('.tab-btn[data-tab="worksheet"]').click();
+    setPdfStatus('📥 내려받은 PDF를 위의 [PDF 파일 선택]으로 올려 주세요. 내용은 이 브라우저 안에서만 분석해요.');
+    $('#pdf-ws-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
+}
+
+tabBtns.forEach(btn => btn.addEventListener('click', () => {
+  if (btn.dataset.tab === 'resources') loadResources();
+}));
+
+applyUserLevelUi();

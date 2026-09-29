@@ -1,0 +1,122 @@
+{
+  "updated": "2026-09-27",
+  "resources": [
+    {
+      "lang": "en",
+      "type": "link",
+      "license": "public-domain",
+      "title": "VOA Learning English",
+      "desc": "미국 정부 방송(VOA)의 학습자용 뉴스. 느린 속도 음성 + 전체 스크립트 제공. 레벨별(초급~중급) 코너가 있어요.",
+      "level": "기초~중급",
+      "url": "https://learningenglish.voanews.com/"
+    },
+    {
+      "lang": "en",
+      "type": "link",
+      "license": "cc-by",
+      "title": "Tatoeba 예문 사전",
+      "desc": "전 세계 사용자가 모은 예문·번역 데이터베이스. 단어로 검색하면 실제 예문과 한국어 번역을 볼 수 있어요.",
+      "level": "전 레벨",
+      "url": "https://tatoeba.org/ko/"
+    },
+    {
+      "lang": "en",
+      "type": "link",
+      "license": "copyright",
+      "title": "BBC Learning English",
+      "desc": "6 Minute English, 발음·문법 짧은 강의. 영국식 영어 듣기 연습에 좋아요.",
+      "level": "중급~고급",
+      "url": "https://www.bbc.co.uk/learningenglish/"
+    },
+    {
+      "lang": "en",
+      "type": "link",
+      "license": "copyright",
+      "title": "EnglishClub",
+      "desc": "문법·어휘·회화 표현을 주제별로 정리한 무료 학습 사이트.",
+      "level": "기초~중급",
+      "url": "https://www.englishclub.com/"
+    },
+    {
+      "lang": "en",
+      "type": "pdf",
+      "license": "copyright",
+      "title": "English-grammar.at",
+      "desc": "문법 항목별 무료 연습문제 워크시트(인쇄용 PDF) 모음. 내려받아 학습지 탭에 올리면 빈칸·단어·쉐도잉으로 바꿔 줘요.",
+      "level": "기초~중급",
+      "url": "https://www.english-grammar.at/"
+    },
+    {
+      "lang": "en",
+      "type": "link",
+      "license": "copyright",
+      "title": "UsingEnglish.com",
+      "desc": "관용구·구동사 사전과 문법 참고 자료, 퀴즈.",
+      "level": "중급~고급",
+      "url": "https://www.usingenglish.com/"
+    },
+    {
+      "lang": "en",
+      "type": "link",
+      "license": "cc-by-sa",
+      "title": "Simple English Wikipedia",
+      "desc": "쉬운 영어로 쓴 위키백과. 관심 있는 주제로 읽기 연습을 할 수 있어요. (내용 복사 시 CC BY-SA 출처 표기 필요)",
+      "level": "기초~중급",
+      "url": "https://simple.wikipedia.org/"
+    },
+    {
+      "lang": "ja",
+      "type": "pdf",
+      "license": "copyright",
+      "title": "JLPT 공식 샘플 문제 (N5~N1)",
+      "desc": "일본어능력시험 주최 측이 공개한 레벨별 샘플 문제 PDF.",
+      "level": "N5~N1",
+      "url": "https://www.jlpt.jp/e/samples/forlearners.html"
+    },
+    {
+      "lang": "ja",
+      "type": "link",
+      "license": "copyright",
+      "title": "NEWS WEB EASY (NHK)",
+      "desc": "NHK의 쉬운 일본어 뉴스. 후리가나와 음성 제공.",
+      "level": "N4~N3",
+      "url": "https://www3.nhk.or.jp/news/easy/"
+    },
+    {
+      "lang": "ja",
+      "type": "link",
+      "license": "public-domain",
+      "title": "FSI Japanese Basic Course (Live Lingua)",
+      "desc": "미 국무부 외교연수원(FSI) 일본어 교재·음성. 퍼블릭 도메인이라 자유롭게 쓸 수 있어요. 사이트에서 'FSI' 메뉴를 찾아 주세요.",
+      "level": "입문~중급",
+      "url": "https://www.livelingua.com/"
+    },
+    {
+      "lang": "es",
+      "type": "pdf",
+      "license": "copyright",
+      "title": "DELE 공식 모의고사 (A1~C2)",
+      "desc": "세르반테스 문화원이 공개한 레벨별 DELE 모의시험(PDF·음성).",
+      "level": "A1~C2",
+      "url": "https://examenes.cervantes.es/es/dele/preparar-prueba"
+    },
+    {
+      "lang": "es",
+      "type": "link",
+      "license": "public-domain",
+      "title": "FSI Spanish Basic Course (Live Lingua)",
+      "desc": "미 국무부 외교연수원(FSI) 스페인어 교재·음성. 퍼블릭 도메인. 사이트에서 'FSI' 메뉴를 찾아 주세요.",
+      "level": "입문~중급",
+      "url": "https://www.livelingua.com/"
+    },
+    {
+      "lang": "es",
+      "type": "link",
+      "license": "cc-by",
+      "title": "Tatoeba (스페인어 예문)",
+      "desc": "스페인어 예문과 번역 검색.",
+      "level": "전 레벨",
+      "url": "https://tatoeba.org/ko/"
+    }
+  ]
+}
