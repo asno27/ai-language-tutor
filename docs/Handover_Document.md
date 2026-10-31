@@ -30,8 +30,9 @@
    ▼
 [Cloudflare Worker "ai-language-tutor"]  (GitHub asno27/ai-language-tutor main 브랜치 push 시 자동 배포)
    ├─ 정적 파일: index.html, css/, js/, data/  (.assetsignore로 docs/, worker/, server/ 등은 제외)
-   ├─ POST /api/llm   → Gemini(1순위) → Groq(2순위, 여러 모델 순차 시도)     [worker/llm-worker.js]
-   └─ POST /api/sync  → Cloudflare D1 "ai-language-tutor-db" (기기 간 동기화)  [worker/sync.js]
+   ├─ POST /api/llm   → Groq(1순위, 여러 모델 순차 시도) → Gemini → Workers AI  [worker/llm-worker.js]
+   ├─ POST /api/sync  → Cloudflare D1 "ai-language-tutor-db" (기기 간 동기화)  [worker/sync.js]
+   └─ POST /api/transcribe → Groq Whisper (음성·영상 파일 받아쓰기, 25MB)  [worker/transcribe.js]
 
 [사용자 PC + ngrok]  https://overexert-swiftly-endeared.ngrok-free.dev   ← PC가 켜져 있을 때만
    ├─ POST /api/youtube  → 유튜브 자막/오디오 추출 (가정용 IP 필요)            [server/main.py]
@@ -114,6 +115,7 @@ js/languages.js       다국어 설정 (Phase 4 대비, 아직 어디서도 사�
 data/worksheet.json   주간 학습지 1~10주차
 worker/llm-worker.js  Cloudflare Worker 진입점 (/api/llm, 라우팅, CORS)
 worker/sync.js        /api/sync
+worker/transcribe.js  /api/transcribe
 wrangler.jsonc        Cloudflare 배포 설정
 .assetsignore         사이트로 공개하지 않을 파일
 docs/                 기획서, 인수인계서, 완료 기능 목록
