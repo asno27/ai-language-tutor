@@ -4,6 +4,7 @@ import { pickDailyScenes, ROLEPLAY_SCENARIOS, LEVELS, DEFAULT_LEVEL, EXAMPLE_TOP
 import { compareWords } from './shadowing.js';
 import { logActivity, logMistake, getStats, setGoal, GOAL_CHOICES, GOAL_KEY, loadStudyDays, dayCount, dateKey, applyRemoteStudyDays, collectAllStudyDays, applyRemoteMistakes, collectAllMistakes, loadMistakes, deleteMistake, clearMistakes } from './activity.js';
 import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount, applyRemoteVocab, collectAllVocab } from './vocabulary.js';
+import { loadProgress, isStepDone, setStepDone, unitProgress, startStep, checkActiveStep, getActiveStep, applyRemoteCourse, collectAllCourse } from './course.js';
 import { registerSyncKind, queueChange, onSyncStatus, enableSync, disableSync, syncNow, isSyncEnabled, getSyncCode, formatCode, isValidCode, getLastSyncAt } from './sync.js';
 
 // TTS 함수를 전역으로 노출 (innerHTML onclick에서 사용)
@@ -2061,6 +2062,11 @@ registerSyncKind('mistake', {
   collectAll: collectAllMistakes,
 });
 
+registerSyncKind('course_step', {
+  apply: applyRemoteCourse,
+  collectAll: collectAllCourse,
+});
+
 registerSyncKind('setting', {
   apply(changes) {
     let changed = false;
@@ -2927,3 +2933,106 @@ function openGrammarFromMistakes(catIndex) {
   grammarBusy = false; grammarGo.disabled = false; // 이전 요청이 끝나지 않았어도 새 요청을 시작
   showGrammar({ mistakes: examples });
 }
+
+
+// === 학습 코스 (Phase 5.4) ===
+// data/course.json: { basic: [단원], intermediate: [...], advanced: [...] }, 단원 = { id, title, goal, steps: [{ id, type, ref, need, label }] }
+const courseSummary = $('#course-summary');
+const courseUnits = $('#course-units');
+let courseData = null;
+let courseLoadFailed = false;
+
+async function loadCourse() {
+  if (courseData || courseLoadFailed) return;
+  try {
+    courseData = await (await fetch('data/course.json')).json();
+  } catch (e) {
+    console.error('Failed to load course data', e);
+    courseLoadFailed = true;
+  }
+}
+
+const COURSE_STEP_ICONS = { grammar: '📐', roleplay: '🎭', examples: '🧩', daily: '📅', review: '🔁', writing: '✍️', mistakes: '📉' };
+const COURSE_STEP_TABS = { grammar: 'grammar', roleplay: 'roleplay', examples: 'examples', daily: 'daily', review: 'vocabulary', writing: 'writing', mistakes: 'mistakes' };
+
+function courseUnitsForLevel() {
+  return courseData?.[getUserLevel()] || [];
+}
+
+function renderCourse() {
+  if (!courseData) {
+    courseSummary.textContent = courseLoadFailed ? '⚠️ 코스를 불러오지 못했어요. 새로고침해 주세요.' : '불러오는 중...';
+    courseUnits.innerHTML = '';
+    return;
+  }
+  const units = courseUnitsForLevel();
+  const progress = loadProgress();
+  const active = getActiveStep();
+  const firstOpenIndex = units.findIndex(u => u.steps.some(s => progress[s.id]?.d !== 1));
+  let doneSteps = 0, totalSteps = 0, doneUnits = 0;
+  courseUnits.innerHTML = units.map((unit, i) => {
+    const { done, total } = unitProgress(unit);
+    doneSteps += done; totalSteps += total;
+    const complete = done === total;
+    if (complete) doneUnits++;
+    const steps = unit.steps.map(step => {
+      const isDone = progress[step.id]?.d === 1;
+      const isActive = active?.id === step.id;
+      return `<li class="course-step${isDone ? ' done' : ''}">
+        <button class="course-check" data-check="${escapeAttr(step.id)}" aria-pressed="${isDone}" aria-label="${isDone ? '완료 취소' : '완료로 표시'}">${isDone ? '✅' : '⬜'}</button>
+        <span class="course-step-label">${COURSE_STEP_ICONS[step.type] || '•'} ${escapeHtml(step.label)}${isActive ? ' <em class="course-doing">진행 중</em>' : ''}</span>
+        <button class="mk-opt course-go" data-go="${escapeAttr(step.id)}">${isDone ? '다시' : '시작'}</button>
+      </li>`;
+    }).join('');
+    return `<details class="glass-card course-unit"${i === firstOpenIndex ? ' open' : ''}>
+      <summary><span class="course-unit-title">${complete ? '✅' : `${i + 1}.`} ${escapeHtml(unit.title)}</span><span class="course-unit-count">${done}/${total}</span></summary>
+      <p class="course-goal">🎯 ${escapeHtml(unit.goal)}</p>
+      <ul class="course-steps">${steps}</ul>
+    </details>`;
+  }).join('');
+  const pct = totalSteps ? Math.round(doneSteps / totalSteps * 100) : 0;
+  courseSummary.innerHTML = `<div>📶 ${LEVELS[getUserLevel()].label} 코스 · 단원 ${doneUnits}/${units.length} 완료 · ${pct}% <span class="level-chip">(레벨은 맨 위에서 바꿀 수 있어요)</span></div>
+    <div class="course-bar"><div class="course-bar-fill" style="width:${pct}%"></div></div>`;
+}
+
+function findCourseStep(id) {
+  for (const unit of courseUnitsForLevel()) {
+    const step = unit.steps.find(s => s.id === id);
+    if (step) return step;
+  }
+  return null;
+}
+
+function openCourseStep(step) {
+  startStep(step);
+  const tab = COURSE_STEP_TABS[step.type];
+  if (!tab) return;
+  document.querySelector(`.tab-btn[data-tab="${tab}"]`).click();
+  if (step.type === 'grammar') {
+    selectGrammarTopic(step.ref);
+    if (step.ref !== 'custom') showGrammar();
+  } else if (step.type === 'roleplay' || step.type === 'examples') {
+    const holder = step.type === 'roleplay' ? roleplayScenarios : examplesTopics;
+    holder.querySelector(`.roleplay-chip[data-id="${step.ref}"]`)?.click();
+  }
+}
+
+courseUnits.addEventListener('click', (e) => {
+  const check = e.target.closest('[data-check]');
+  const go = e.target.closest('[data-go]');
+  if (check) {
+    const id = check.dataset.check;
+    setStepDone(id, !isStepDone(id));
+  } else if (go) {
+    const step = findCourseStep(go.dataset.go);
+    if (step) openCourseStep(step);
+  }
+});
+
+document.querySelector('.tab-btn[data-tab="course"]').addEventListener('click', async () => {
+  await loadCourse();
+  renderCourse();
+});
+window.addEventListener('course-changed', () => { if ($('#pane-course').classList.contains('active')) renderCourse(); });
+window.addEventListener('activity-changed', () => { checkActiveStep(); });
+onLevelChange(() => { if ($('#pane-course').classList.contains('active')) renderCourse(); });

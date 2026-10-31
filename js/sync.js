@@ -82,7 +82,7 @@ function queueEverything() {
   const pending = readJson(PENDING_KEY, {});
   for (const [kind, handlers] of Object.entries(kinds)) {
     for (const item of handlers.collectAll()) {
-      pending[`${kind}:${item.id}`] = { kind, id: item.id, data: item.data, deleted: false, updatedAt: item.updatedAt };
+      pending[`${kind}:${item.id}`] = { kind, id: item.id, data: item.data, deleted: !!item.deleted, updatedAt: item.updatedAt };
     }
   }
   localStorage.setItem(PENDING_KEY, JSON.stringify(pending));

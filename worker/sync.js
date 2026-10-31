@@ -8,7 +8,7 @@
 // - 같은 항목은 updatedAt이 더 최근인 쪽이 이김 (삭제도 deleted=1로 기록해 다른 기기에 전파)
 // - server_ts(마이크로초 단위, 행마다 고유)로 "since 이후 바뀐 것"만 돌려줌
 
-const SYNC_KINDS = new Set(['vocab', 'daily_set', 'setting']);
+const SYNC_KINDS = new Set(['vocab', 'daily_set', 'setting', 'study_day', 'mistake', 'course_step']);
 const MAX_CHANGES = 500;
 const MAX_ITEM_CHARS = 30000;
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
