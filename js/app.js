@@ -3,7 +3,7 @@ import { SpeechManager, speak } from './speech.js';
 import { pickDailyScenes, ROLEPLAY_SCENARIOS, LEVELS, DEFAULT_LEVEL, EXAMPLE_TOPICS, GRAMMAR_TOPICS } from './prompts.js';
 import { compareWords } from './shadowing.js';
 import { logActivity, logMistake, getStats, setGoal, GOAL_CHOICES, GOAL_KEY, loadStudyDays, dayCount, dateKey, applyRemoteStudyDays, collectAllStudyDays, applyRemoteMistakes, collectAllMistakes, loadMistakes, deleteMistake, clearMistakes } from './activity.js';
-import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount, applyRemoteVocab, collectAllVocab } from './vocabulary.js';
+import { markWordDue, saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount, applyRemoteVocab, collectAllVocab } from './vocabulary.js';
 import { loadCefr, cefrBadgeHtml } from './cefr.js';
 import { loadProgress, isStepDone, setStepDone, unitProgress, startStep, checkActiveStep, getActiveStep, applyRemoteCourse, collectAllCourse } from './course.js';
 import { registerSyncKind, queueChange, onSyncStatus, enableSync, disableSync, syncNow, isSyncEnabled, getSyncCode, formatCode, isValidCode, getLastSyncAt } from './sync.js';
@@ -3010,7 +3010,7 @@ function mountQuiz(box, exercises, onFinish) {
   exercises.forEach((ex, i) => {
     const q = document.createElement('div');
     q.className = 'mk-q';
-    q.innerHTML = `<div class="mk-q-text">${i + 1}. ${escapeHtml(ex.sentence).replace(/_{2,}/, '<span class="mk-blank">＿＿＿</span>')}</div>
+    q.innerHTML = `<div class="mk-q-text">${i + 1}. ${ex.promptHtml ?? escapeHtml(ex.sentence).replace(/_{2,}/, '<span class="mk-blank">＿＿＿</span>')}</div>
       <div class="mk-opts">${ex.options.map(o => `<button class="mk-opt" data-o="${escapeAttr(o)}">${escapeHtml(o)}</button>`).join('')}</div>
       <div class="mk-explain" style="display:none"></div>`;
     q.querySelectorAll('.mk-opt').forEach(btn => btn.addEventListener('click', () => {
@@ -3027,6 +3027,7 @@ function mountQuiz(box, exercises, onFinish) {
       const why = !ok && ex.wrongReasons?.[btn.dataset.o];
       explain.innerHTML = `${ok ? '✅ 정답!' : `❌ 정답은 <b>${escapeHtml(ex.answer)}</b>`}${why ? `<br><b>${escapeHtml(btn.dataset.o)}</b>는 왜 아닐까요? ${escapeHtml(why)}` : ''}${ex.explanationKo ? `<br>${escapeHtml(ex.explanationKo)}` : ''}`;
       answered++; if (ok) correct++;
+      ex.onAnswer?.(ok);
       if (answered === exercises.length) onFinish({ correct, total: exercises.length });
     }));
     box.appendChild(q);
@@ -3336,3 +3337,56 @@ document.querySelector('.tab-btn[data-tab="course"]').addEventListener('click', 
 window.addEventListener('course-changed', () => { if ($('#pane-course').classList.contains('active')) renderCourse(); });
 window.addEventListener('activity-changed', () => { checkActiveStep(); });
 onLevelChange(() => { if ($('#pane-course').classList.contains('active')) renderCourse(); });
+
+// === 단어 퀴즈 (저장한 단어로 만드는 객관식, AI 호출 없음) ===
+// 세 가지 유형을 섞어 최대 10문제: 영어→뜻, 뜻→영어, 듣고 단어 고르기. 틀린 단어는 바로 복습 대상으로 돌려놓음.
+const VQ_MAX = 10;
+const vocabQuizEl = $('#vocab-quiz');
+
+const shuffle = (arr) => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const vocabMeaning = (w) => String(w.meanings?.[0]?.definitions?.[0] || '').trim().slice(0, 40);
+
+function buildVocabQuiz() {
+  const usable = getAllWords().filter(w => vocabMeaning(w));
+  if (usable.length < 4) return null;
+  const due = new Set(getWordsForReview().map(w => w.id));
+  // 복습할 단어를 먼저, 나머지는 무작위
+  const picked = [...shuffle(usable.filter(w => due.has(w.id))), ...shuffle(usable.filter(w => !due.has(w.id)))].slice(0, VQ_MAX);
+  const types = ['en2ko', 'ko2en', 'listen'];
+  return shuffle(picked).map((w, i) => {
+    const type = types[i % 3];
+    const others = shuffle(usable.filter(o => o.id !== w.id));
+    const pick = (fn, correct) => {
+      const out = [correct];
+      for (const o of others) { const v = fn(o); if (v && !out.includes(v)) out.push(v); if (out.length === 4) break; }
+      return shuffle(out);
+    };
+    if (type === 'en2ko') {
+      const answer = vocabMeaning(w);
+      return { wordId: w.id, answer, options: pick(vocabMeaning, answer), promptHtml: `<b>${escapeHtml(w.word)}</b>의 뜻은?`, wordText: w.word };
+    }
+    if (type === 'ko2en') {
+      return { wordId: w.id, answer: w.word, options: pick(o => o.word, w.word), promptHtml: `"${escapeHtml(vocabMeaning(w))}" 에 해당하는 영어 단어는?`, wordText: w.word };
+    }
+    return { wordId: w.id, answer: w.word, options: pick(o => o.word, w.word), promptHtml: `🔊 <button class="audio-btn" style="padding:4px 12px" data-speak="${escapeAttr(w.word)}">듣기</button> 들은 단어를 고르세요`, wordText: w.word };
+  }).filter(q => q.options.length >= 2);
+}
+
+function startVocabQuiz() {
+  const quiz = buildVocabQuiz();
+  if (!quiz) { alert('퀴즈는 뜻이 있는 단어가 4개 이상 저장되어 있어야 만들 수 있어요. 사전에서 단어를 더 저장해 보세요!'); return; }
+  vocabQuizEl.style.display = 'block';
+  vocabQuizEl.innerHTML = `<div class="mk-report-head">🎯 단어 퀴즈 <span class="mk-sub">${quiz.length}문제 · 틀린 단어는 바로 복습 목록에 들어가요</span></div><div id="vq-questions"></div><div id="vq-result"></div>`;
+  const wrongIds = [];
+  const exercises = quiz.map(q => ({ ...q, onAnswer: (ok) => { if (!ok) wrongIds.push(q.wordId); } }));
+  mountQuiz(document.getElementById('vq-questions'), exercises, ({ correct, total }) => {
+    wrongIds.forEach(markWordDue);
+    logActivity('vocab_quiz');
+    renderVocabList();
+    document.getElementById('vq-result').innerHTML = `<div class="mk-score">🎯 ${correct}/${total} 정답</div>
+      <div class="mk-result-actions"><button class="submit-btn" id="vq-again"><span class="btn-text">🔄 다시 풀기</span></button><button class="audio-btn" id="vq-close">닫기</button></div>`;
+    document.getElementById('vq-again').addEventListener('click', startVocabQuiz);
+    document.getElementById('vq-close').addEventListener('click', () => { vocabQuizEl.style.display = 'none'; vocabQuizEl.innerHTML = ''; });
+  });
+}
+$('#start-vocab-quiz').addEventListener('click', startVocabQuiz);

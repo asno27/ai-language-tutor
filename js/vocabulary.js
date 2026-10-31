@@ -115,6 +115,16 @@ export function updateReview(id, quality) {
   return words[idx];
 }
 
+/** 퀴즈에서 틀린 단어를 바로 복습 대상으로 (SM-2 기록은 건드리지 않고 복습 시점만 지금으로) */
+export function markWordDue(id) {
+  const words = loadVocabulary();
+  const idx = words.findIndex(w => w.id === id);
+  if (idx === -1) return;
+  words[idx].nextReview = new Date().toISOString();
+  touch(words[idx]);
+  saveVocabulary(words);
+}
+
 export function isWordSaved(word) {
   return loadVocabulary().some(w => w.word.toLowerCase() === word.toLowerCase());
 }

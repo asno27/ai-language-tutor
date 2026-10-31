@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=20">
+  <link rel="stylesheet" href="css/style.css?v=21">
 </head>
 <body>
   <div id="app">
@@ -229,7 +229,9 @@
           </div>
           <div class="vocab-actions">
             <button class="submit-btn" id="start-review"><span class="btn-text">🧠 복습 시작</span></button>
+            <button class="audio-btn" id="start-vocab-quiz" style="min-height:44px;">🎯 단어 퀴즈</button>
           </div>
+          <div class="mk-practice" id="vocab-quiz" style="display:none;"></div>
           <div class="vocab-list" id="vocab-list">
             <div class="placeholder-message"><span class="placeholder-icon">📝</span><p>사전에서 단어를 검색하고 ⭐ 버튼으로 저장하세요</p></div>
           </div>
@@ -662,7 +664,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=31"></script>
+  <script type="module" src="js/app.js?v=32"></script>
 
 
 
