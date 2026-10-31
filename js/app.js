@@ -910,6 +910,25 @@ const worksheetSttResult = document.getElementById('worksheet-stt-result');
 const worksheetSttText = document.getElementById('worksheet-stt-text');
 const worksheetOutput = document.getElementById('worksheet-output');
 
+const WORKSHEET_LICENSES = {
+  'public-domain': '퍼블릭 도메인',
+  'cc0': 'CC0 (퍼블릭 도메인 헌정)',
+  'cc-by': 'CC BY (출처 표기)',
+  'original': 'AI가 만든 오리지널',
+  'unverified': '권리 확인 중'
+};
+
+// 학습지 한 줄 출처: 어디서 온 자료인지, 어떤 권리인지 (공개 저장소에 올라가는 자료라 항상 보이게)
+function renderWorksheetSource(ws) {
+  const el = document.getElementById('worksheet-source');
+  if (!el) return;
+  const label = WORKSHEET_LICENSES[ws.license];
+  if (!ws.source && !label) { el.innerHTML = ''; return; }
+  const link = /^https:\/\//.test(ws.sourceUrl || '')
+    ? ` <a href="${escapeAttr(ws.sourceUrl)}" target="_blank" rel="noopener noreferrer">원본 보기</a>` : '';
+  el.innerHTML = `출처: ${escapeHtml(ws.source || '직접 작성')}${label ? ` · <span class="ws-license ${ws.license === 'unverified' ? 'pending' : ''}">${escapeHtml(label)}</span>` : ''}${link}`;
+}
+
 let worksheetData = [];
 let currentWorksheet = null;
 const worksheetSpeech = new SpeechManager();
@@ -938,6 +957,7 @@ if (worksheetSelect) {
   function renderWorksheet(ws) {
     worksheetContent.style.display = 'block';
     worksheetVideo.src = ws.youtubeUrl;
+    renderWorksheetSource(ws);
 
     worksheetDictation.innerHTML = '';
     ws.dictation.forEach((dict, i) => {

@@ -14,6 +14,7 @@
 | `youtubeUrl` | 임베드용 유튜브 주소 (`https://www.youtube.com/embed/영상ID`) |
 | `dictation[]` | 문장 3~5개: `sentence`(핵심 단어를 `{빈칸}`으로 표시), `ko`(한국어 해석), `hints[]`(빈칸별 한국어 힌트) |
 | `shadowing` | `text`(따라 읽을 문단), `ko`(한국어 해석) |
+| `source`, `license`, `sourceUrl` | 출처 한 줄(화면에 표시). `license` 값: `public-domain` · `cc0` · `cc-by` · `original`(AI 오리지널) · `unverified`(권리 확인 중). 새 학습지를 추가할 때 반드시 채울 것 |
 
 → 즉 **① 영상 ② 그 영상의 정확한 대사(스크립트) ③ 그 대사를 가공해도 되는 권리**가 모두 있어야 합니다.
 공개 저장소에 올라가므로 ③이 가장 중요합니다.

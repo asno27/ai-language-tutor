@@ -1665,3 +1665,9 @@ body::after {
 .gr-actions { margin-top: 0.8rem; }
 .mk-cat-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.7rem; }
 .mk-cat-actions .mk-practice-btn { margin-top: 0; }
+
+/* === 학습지 출처 (W-3) === */
+.ws-source { margin: -0.6rem 0 1.5rem; font-size: 0.8rem; color: rgba(255, 255, 255, 0.55); line-height: 1.6; }
+.ws-source a { color: var(--accent-primary-1); }
+.ws-license { padding: 1px 8px; border-radius: 10px; border: 1px solid rgba(67, 233, 123, 0.4); background: rgba(67, 233, 123, 0.12); }
+.ws-license.pending { border-color: rgba(247, 151, 30, 0.45); background: rgba(247, 151, 30, 0.12); }
