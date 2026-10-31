@@ -102,7 +102,8 @@ export function getStats(today = new Date()) {
 // === 실수 기록 ===
 export function loadMistakes() {
   const list = readJson(MISTAKES_KEY, []);
-  return Array.isArray(list) ? list : [];
+  // 예전에 한국어 입력이 틀린 영어로 저장된 기록은 보이지 않게 거름 (다음 저장 때 함께 정리됨)
+  return Array.isArray(list) ? list.filter(m => m && !/[가-힣]/.test(m.original || '')) : [];
 }
 
 function hashText(text) {
