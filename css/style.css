@@ -1697,3 +1697,9 @@ body::after {
 .ws-dlg-speaker { flex-shrink: 0; min-width: 2.2em; font-weight: 700; color: var(--accent-primary-1); }
 .ws-dlg-ko { display: none; color: var(--text-muted); font-size: 0.9rem; }
 #worksheet-dialogue.show-ko .ws-dlg-ko { display: block; }
+
+/* === 단어 레벨 표시 (C-10) === */
+.cefr-badge { display: inline-block; font-size: 0.68rem; font-weight: 700; line-height: 1; padding: 3px 6px; border-radius: 8px; vertical-align: middle; color: #fff; background: #666; cursor: help; }
+.cefr-a1, .cefr-a2 { background: #2e9e6a; }
+.cefr-b1, .cefr-b2 { background: #4a6fd8; }
+.cefr-c1, .cefr-c2 { background: #a0522d; }

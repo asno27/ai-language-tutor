@@ -4,6 +4,7 @@ import { pickDailyScenes, ROLEPLAY_SCENARIOS, LEVELS, DEFAULT_LEVEL, EXAMPLE_TOP
 import { compareWords } from './shadowing.js';
 import { logActivity, logMistake, getStats, setGoal, GOAL_CHOICES, GOAL_KEY, loadStudyDays, dayCount, dateKey, applyRemoteStudyDays, collectAllStudyDays, applyRemoteMistakes, collectAllMistakes, loadMistakes, deleteMistake, clearMistakes } from './activity.js';
 import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount, applyRemoteVocab, collectAllVocab } from './vocabulary.js';
+import { loadCefr, cefrBadgeHtml } from './cefr.js';
 import { loadProgress, isStepDone, setStepDone, unitProgress, startStep, checkActiveStep, getActiveStep, applyRemoteCourse, collectAllCourse } from './course.js';
 import { registerSyncKind, queueChange, onSyncStatus, enableSync, disableSync, syncNow, isSyncEnabled, getSyncCode, formatCode, isValidCode, getLastSyncAt } from './sync.js';
 
@@ -82,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
       popup.style.left = (rect.left + rect.width / 2) + window.scrollX + 'px';
       popup.style.top = (rect.top + window.scrollY) + 'px';
 
-      wordEl.textContent = word;
+      wordEl.innerHTML = `${escapeHtml(word)} ${cefrBadgeHtml(word)}`;
       phoneticEl.textContent = '';
       meaningsEl.innerHTML = '<div class="placeholder-message" style="margin:0; padding:10px 0;"><span class="placeholder-icon" style="font-size:1.2rem;">⏳</span><p style="font-size:0.8rem; margin:0;">검색 중...</p></div>';
 
@@ -396,7 +397,7 @@ translationInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (
 function renderDictionaryResult(dictData, llmData) {
   const word = llmData?.word || dictData?.word || '';
   const phonetic = dictData?.phonetic || llmData?.phonetic || '';
-  let html = `<div class="result-section fade-in"><div class="result-label word-title">📖 ${escapeHtml(word)} ${phonetic ? `<span style="font-weight:400;color:var(--text-muted);font-size:0.9rem">${escapeHtml(phonetic)}</span>` : ''}</div>`;
+  let html = `<div class="result-section fade-in"><div class="result-label word-title">📖 ${escapeHtml(word)} ${cefrBadgeHtml(word)} ${phonetic ? `<span style="font-weight:400;color:var(--text-muted);font-size:0.9rem">${escapeHtml(phonetic)}</span>` : ''}</div>`;
   // 발음 듣기: Free Dictionary API 음성 있으면 사용, 없으면 TTS
   if (dictData?.audioUrl) {
     html += `<button class="audio-btn" data-audio="${escapeAttr(dictData.audioUrl)}">🔊 원어민 발음</button> `;
@@ -498,6 +499,7 @@ function renderVocabList() {
     html += `<div class="vocab-item">
       <div class="vocab-item-info">
         <span class="vocab-item-word">${escapeHtml(w.word)}</span>
+        ${cefrBadgeHtml(w.word)}
         <span class="vocab-item-badge ${badge}">${badgeText}</span>
         <div class="vocab-item-meaning">${escapeHtml(meaningText)}</div>
       </div>
@@ -3150,6 +3152,10 @@ function openGrammarFromMistakes(catIndex) {
   showGrammar({ mistakes: examples });
 }
 
+
+// === 단어 레벨 표시 (C-10) ===
+loadCefr();
+window.addEventListener('cefr-loaded', () => { if ($('#pane-vocabulary').classList.contains('active')) renderVocabList(); });
 
 // === 학습 코스 (Phase 5.4) ===
 // data/course.json: { basic: [단원], intermediate: [...], advanced: [...] }, 단원 = { id, title, goal, steps: [{ id, type, ref, need, label }] }
