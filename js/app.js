@@ -467,6 +467,11 @@ async function handleDictionarySubmit() {
   showLoading(); dictionarySubmit.disabled = true;
   try {
     const [dictData, llmData] = await Promise.all([lookupDictionary(word), callGemini('dictionary', { word })]);
+    // 사전에도 없고 AI도 뜻을 못 찾았으면 빈 카드 대신 안내 (철자 오타일 가능성이 큼)
+    if (!dictData && !llmData?.meanings?.length && !llmData?.examples?.length) {
+      dictionaryOutput.innerHTML = `<div class="result-section fade-in"><div class="result-label warning">🔍 "${escapeHtml(word)}"의 뜻을 찾지 못했어요</div><div class="result-text">철자를 확인하고 다시 검색해 보세요. 영어 단어가 아니거나 아주 드문 말일 수 있어요.</div></div>`;
+      return;
+    }
     renderDictionaryResult(dictData, llmData);
     logActivity('dictionary');
   } catch (e) { showError(dictionaryOutput, e.message); }

@@ -83,6 +83,18 @@ check('레벨: 변화형 studies → 원형', cefr.cefrLevel('studies')?.exact =
 check('레벨: 없는 단어는 null', cefr.cefrLevel('xyzzy') === null);
 check('레벨: 배지 HTML', /cefr-badge/.test(cefr.cefrBadgeHtml('abandon')) && cefr.cefrBadgeHtml('xyzzy') === '');
 
+// --- 실수 기록: 한국어 입력·같은 문장은 기록하지 않음
+const store = new Map();
+globalThis.localStorage = { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
+globalThis.document = { addEventListener() {} };
+globalThis.window.addEventListener = () => {};
+globalThis.window.dispatchEvent = () => {};
+const activity = await import(pathToFileURL(path.join(root, 'js/activity.js')).href);
+check('실수: 틀린 영어는 기록', activity.logMistake({ source: 'writing', original: 'I am go home', corrected: 'I am going home' }) === true);
+check('실수: 한국어 입력은 기록 안 함', activity.logMistake({ source: 'writing', original: '나는 어제 학교에 갔다', corrected: 'I went to school yesterday.' }) === false);
+check('실수: 같은 문장은 기록 안 함', activity.logMistake({ source: 'writing', original: 'asdf qwer', corrected: 'asdf qwer' }) === false);
+check('실수: 기록 1개만 남음', activity.loadMistakes().length === 1);
+
 // --- 앱 설치 파일
 const manifest = json('manifest.webmanifest');
 check('manifest: 아이콘 파일 존재', manifest.icons.every(i => fs.existsSync(path.join(root, i.src))));

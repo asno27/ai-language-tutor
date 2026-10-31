@@ -116,6 +116,8 @@ export function logMistake({ source, original, corrected, comment = '' }) {
   const o = String(original || '').trim();
   const c = String(corrected || '').trim();
   if (!o || !c || o === c) return false;
+  // 한국어로 쓴 문장(영어로 어떻게 말하나요?)이나 영어가 아닌 입력은 "틀린 영어"가 아니므로 기록하지 않음
+  if (/[가-힣]/.test(o) || !/[a-zA-Z]{2,}/.test(o)) return false;
   const at = new Date().toISOString();
   const item = { id: `${at}|${hashText(o)}`, at, source, original: o.slice(0, 500), corrected: c.slice(0, 500), comment: String(comment || '').slice(0, 400) };
   const list = loadMistakes();
