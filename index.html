@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=19">
+  <link rel="stylesheet" href="css/style.css?v=20">
 </head>
 <body>
   <div id="app">
@@ -370,6 +370,11 @@
             <span></span>
             <button class="submit-btn" id="roleplay-start"><span class="btn-text">대화 시작</span><span class="btn-icon">→</span></button>
           </div>
+          <div class="rp-history" id="rp-history" style="display:none;">
+            <h3>📜 지난 대화</h3>
+            <div id="rp-history-list"></div>
+            <div id="rp-history-view" class="rp-history-view" style="display:none;"></div>
+          </div>
         </div>
         <div class="glass-card roleplay-chat-card" id="roleplay-chat-card" style="display:none;">
           <div class="roleplay-chat-header">
@@ -657,7 +662,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=30"></script>
+  <script type="module" src="js/app.js?v=31"></script>
 
 
 

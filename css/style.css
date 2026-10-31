@@ -1703,3 +1703,13 @@ body::after {
 .cefr-a1, .cefr-a2 { background: #2e9e6a; }
 .cefr-b1, .cefr-b2 { background: #4a6fd8; }
 .cefr-c1, .cefr-c2 { background: #a0522d; }
+
+/* === 지난 역할극 대화 (C-5) === */
+.rp-history { margin-top: 1.4rem; padding-top: 1rem; border-top: 1px dashed rgba(255, 255, 255, 0.15); }
+.rp-history h3 { color: var(--text-heading); font-size: 1rem; margin-bottom: 0.6rem; }
+.rp-history-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.rp-history-open { flex: 1; text-align: left; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); color: var(--text-heading); border-radius: 10px; padding: 10px 14px; cursor: pointer; min-height: 44px; font-size: 0.95rem; }
+.rp-history-open:hover { background: rgba(255, 255, 255, 0.1); }
+.rp-history-meta { display: block; font-size: 0.78rem; color: rgba(255, 255, 255, 0.55); margin-top: 2px; }
+.rp-history-title { color: var(--text-heading); margin: 0.8rem 0 0.6rem; }
+.rp-history-chat .rp-msg { margin-bottom: 0.7rem; }

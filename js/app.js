@@ -1754,6 +1754,8 @@ async function startRoleplay() {
     level: roleplayLevel.value,
     title: preset.id === 'custom' ? `✏️ ${customText}` : preset.label,
     history: [],
+    id: new Date().toISOString(),
+    log: [],
     ended: false,
   };
   roleplayTitle.textContent = `${roleplaySession.title} · ${roleplayLevel.options[roleplayLevel.selectedIndex].text.split(' ')[0]}`;
@@ -1766,6 +1768,7 @@ async function startRoleplay() {
     const result = await requestRoleplayTurn('');
     roleplayChat.innerHTML = '';
     roleplaySession.history.push({ role: 'ai', text: result.reply });
+    roleplaySession.log.push({ role: 'ai', text: result.reply, ko: result.replyKo });
     addRoleplayAiMessage(result.reply, result.replyKo);
     renderRoleplaySuggestions(result.suggestions);
     finishRoleplayIfEnded(result);
@@ -1788,6 +1791,11 @@ async function sendRoleplayMessage() {
   try {
     const result = await requestRoleplayTurn(text);
     roleplaySession.history.push({ role: 'user', text }, { role: 'ai', text: result.reply });
+    const fb0 = result.feedback;
+    roleplaySession.log.push(
+      { role: 'user', text, fb: fb0 ? { corrected: fb0.corrected || '', comment: fb0.comment || '', score: Number.isFinite(fb0.score) ? fb0.score : null, isNatural: !!fb0.isNatural } : null },
+      { role: 'ai', text: result.reply, ko: result.replyKo });
+    saveRoleplayLog();
     renderRoleplayFeedback(feedbackEl, result.feedback, text);
     logActivity('roleplay');
     const fb = result.feedback;
@@ -1819,7 +1827,77 @@ roleplayEnd.addEventListener('click', () => {
   roleplaySession = null;
   roleplayChatCard.style.display = 'none';
   roleplaySetup.style.display = 'block';
+  renderRoleplayHistory();
 });
+
+// === 지난 역할극 대화 다시 보기 (C-5) ===
+// 대화마다 내 문장과 AI의 교정을 함께 이 기기에 저장 (최근 15개). 읽기 전용으로 다시 볼 수 있음.
+const RP_LOG_KEY = 'roleplay_log';
+const RP_LOG_MAX = 15;
+const rpHistory = $('#rp-history');
+const rpHistoryList = $('#rp-history-list');
+const rpHistoryView = $('#rp-history-view');
+
+function loadRoleplayLogs() {
+  try {
+    const list = JSON.parse(localStorage.getItem(RP_LOG_KEY));
+    return Array.isArray(list) ? list.filter(l => l && l.id && Array.isArray(l.log)) : [];
+  } catch { return []; }
+}
+
+/** 내가 한 번이라도 말한 대화만 저장. 같은 대화는 덮어씀 */
+function saveRoleplayLog() {
+  const s = roleplaySession;
+  if (!s?.id || !s.log.some(m => m.role === 'user')) return;
+  const entry = { id: s.id, title: s.title, level: s.level, at: s.id, log: s.log.slice(-60) };
+  const list = [entry, ...loadRoleplayLogs().filter(l => l.id !== s.id)].slice(0, RP_LOG_MAX);
+  try { localStorage.setItem(RP_LOG_KEY, JSON.stringify(list)); } catch (e) { console.warn('대화 저장 실패', e); }
+}
+
+function renderRoleplayHistory() {
+  const list = loadRoleplayLogs();
+  rpHistory.style.display = list.length ? 'block' : 'none';
+  rpHistoryView.style.display = 'none';
+  rpHistoryList.style.display = 'block';
+  rpHistoryList.innerHTML = list.map(l => {
+    const turns = l.log.filter(m => m.role === 'user').length;
+    const date = new Date(l.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return `<div class="rp-history-item">
+      <button class="rp-history-open" data-rp-open="${escapeAttr(l.id)}">${escapeHtml(l.title)} <span class="rp-history-meta">${escapeHtml(date)} · 내 말 ${turns}번</span></button>
+      <button class="vocab-delete-btn" data-rp-del="${escapeAttr(l.id)}" title="삭제" aria-label="대화 삭제">🗑️</button>
+    </div>`;
+  }).join('');
+}
+
+function openRoleplayLog(id) {
+  const l = loadRoleplayLogs().find(x => x.id === id);
+  if (!l) return;
+  const body = l.log.map(m => {
+    if (m.role === 'ai') {
+      return `<div class="rp-msg ai"><div class="rp-bubble">${escapeHtml(m.text)}<button class="audio-btn" style="margin-left:6px;padding:2px 8px;font-size:0.75rem" data-speak="${escapeAttr(m.text)}" aria-label="듣기">🔊</button>${m.ko ? `<div class="rp-ko">${escapeHtml(m.ko)}</div>` : ''}</div></div>`;
+    }
+    const fb = m.fb;
+    const note = !fb ? '' : (fb.isNatural && (!Number.isFinite(fb.score) || fb.score >= 85))
+      ? `<div class="rp-feedback good">✅ 자연스러워요${Number.isFinite(fb.score) ? ` <span class="rp-score">${fb.score}점</span>` : ''}</div>`
+      : `<div class="rp-feedback improve">💡 ${escapeHtml(fb.corrected || '')}${fb.comment ? `<div class="rp-comment">${escapeHtml(fb.comment)}</div>` : ''}</div>`;
+    return `<div class="rp-msg user"><div class="rp-bubble">${escapeHtml(m.text)}</div>${note}</div>`;
+  }).join('');
+  rpHistoryList.style.display = 'none';
+  rpHistoryView.style.display = 'block';
+  rpHistoryView.innerHTML = `<button class="mk-opt" data-rp-back="1">← 목록으로</button><h4 class="rp-history-title">${escapeHtml(l.title)}</h4><div class="rp-history-chat">${body}</div>`;
+}
+
+rpHistory.addEventListener('click', (e) => {
+  const open = e.target.closest('[data-rp-open]');
+  const del = e.target.closest('[data-rp-del]');
+  if (open) openRoleplayLog(open.dataset.rpOpen);
+  else if (del) {
+    try { localStorage.setItem(RP_LOG_KEY, JSON.stringify(loadRoleplayLogs().filter(l => l.id !== del.dataset.rpDel))); } catch {}
+    renderRoleplayHistory();
+  } else if (e.target.closest('[data-rp-back]')) renderRoleplayHistory();
+});
+document.querySelector('.tab-btn[data-tab="roleplay"]').addEventListener('click', () => { if (!roleplaySession) renderRoleplayHistory(); });
+renderRoleplayHistory();
 
 // 말로 대답하기: 인식된 문장을 입력창에 넣고, 확인 후 직접 보내도록 함
 if (!roleplaySpeech.isSupported) {
