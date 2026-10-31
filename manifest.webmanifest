@@ -1,0 +1,16 @@
+{
+  "name": "AI 언어 튜터",
+  "short_name": "AI 튜터",
+  "description": "AI와 함께 영어를 배우는 앱 — 코스, 역할극, 교정, 단어장",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f0c29",
+  "theme_color": "#667eea",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

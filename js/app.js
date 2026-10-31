@@ -3510,3 +3510,8 @@ document.querySelector('.tab-btn[data-tab="home"]').addEventListener('click', re
   window.addEventListener(ev, () => { if ($('#pane-home').classList.contains('active')) renderHome(); }));
 onLevelChange(() => { if ($('#pane-home').classList.contains('active')) renderHome(); });
 renderHome();
+
+// === 홈 화면에 설치 (PWA): 인터넷이 불안정해도 앱이 열리도록 서비스 워커 등록 (개발용 localhost는 제외) ===
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(err => console.warn('서비스 워커 등록 실패', err)));
+}
