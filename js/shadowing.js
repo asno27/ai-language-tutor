@@ -32,6 +32,121 @@ function charDistance(a, b) {
   return prev[b.length];
 }
 
+// 소리가 같은 영어 단어 묶음 (음성 인식은 소리만 듣고 철자를 고르므로, 같은 소리면 맞게 읽은 것으로 인정)
+const HOMOPHONE_GROUPS = [
+  'to too two',
+  "their there they're",
+  "your you're",
+  "its it's",
+  'weather whether',
+  'write right rite',
+  'know no',
+  'knew new',
+  'hear here',
+  'buy by bye',
+  'see sea',
+  'be bee',
+  'for four fore',
+  'one won',
+  'son sun',
+  'sale sail',
+  'tale tail',
+  'meat meet',
+  'week weak',
+  'wait weight',
+  'road rode',
+  'whole hole',
+  'hour our',
+  'break brake',
+  'plain plane',
+  'piece peace',
+  'principal principle',
+  'wear where',
+  'which witch',
+  'would wood',
+  'mail male',
+  'steal steel',
+  'sight site cite',
+  'threw through',
+  'flour flower',
+  'deer dear',
+  'die dye',
+  'eye i',
+  'ate eight',
+  'allowed aloud',
+  'bare bear',
+  'beach beech',
+  'berry bury',
+  'board bored',
+  'cell sell',
+  'cent sent scent',
+  'coarse course',
+  'days daze',
+  'fair fare',
+  'grate great',
+  'heal heel',
+  'hi high',
+  'knot not',
+  'made maid',
+  'main mane',
+  'morning mourning',
+  'none nun',
+  'oh owe',
+  'pair pear',
+  'pause paws',
+  'peak peek',
+  'poor pour',
+  'pray prey',
+  'rain reign rein',
+  'red read',
+  'role roll',
+  'seen scene',
+  'some sum',
+  'stair stare',
+  'stake steak',
+  'suite sweet',
+  'tea tee',
+  'toe tow',
+  'vain vein',
+  'waist waste',
+  'way weigh',
+  "i'm im",
+  "we'll wheel",
+  "won't wont",
+  'hair hare',
+  'lone loan',
+  'pail pale',
+  'sole soul',
+  'wade weighed',
+  'wail whale',
+  'mind mined',
+  'cereal serial',
+  'dew due',
+  'flew flu',
+  'guessed guest',
+  'key quay',
+  'lessen lesson',
+  'medal meddle',
+  'naval navel',
+  'patience patients',
+  'prince prints',
+  'rap wrap',
+  'ring wring',
+  'sauce source',
+  'sew so sow',
+  'tide tied',
+  "weed we'd",
+  'yews use',
+  'ewe you'
+];
+const HOMOPHONE_OF = new Map();
+HOMOPHONE_GROUPS.forEach((group, i) => group.split(' ').forEach(w => HOMOPHONE_OF.set(w, i)));
+
+function isHomophone(a, b) {
+  const g = HOMOPHONE_OF.get(a);
+  return g !== undefined && g === HOMOPHONE_OF.get(b);
+}
+
 /** 철자가 거의 같은 단어 (예: team/teams, color/colour) — 끝소리 등을 약하게 발음했을 가능성 */
 function isClose(a, b) {
   const maxLen = Math.max(a.length, b.length);
@@ -59,7 +174,7 @@ export function compareWords(target, recognized) {
 
   const n = tokens.length;
   const m = heard.length;
-  const subCost = (i, j) => tokens[i].norm === heard[j].norm ? 0 : isClose(tokens[i].norm, heard[j].norm) ? 0.5 : 1;
+  const subCost = (i, j) => tokens[i].norm === heard[j].norm || isHomophone(stripWord(tokens[i].text), stripWord(heard[j].text)) ? 0 : isClose(tokens[i].norm, heard[j].norm) ? 0.5 : 1;
 
   // dp[i][j] = 원문 앞 i단어와 인식 결과 앞 j단어를 맞추는 최소 비용
   const dp = Array.from({ length: n + 1 }, (_, i) => Array.from({ length: m + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)));
@@ -78,6 +193,7 @@ export function compareWords(target, recognized) {
       const cost = subCost(i - 1, j - 1);
       tokens[i - 1].status = cost === 0 ? 'correct' : cost === 0.5 ? 'close' : 'wrong';
       if (cost > 0) tokens[i - 1].heard = heard[j - 1].text;
+      else if (tokens[i - 1].norm !== heard[j - 1].norm) tokens[i - 1].sameSound = heard[j - 1].text; // 소리가 같은 다른 철자로 인식됨
       i--; j--;
     } else if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
       tokens[i - 1].status = 'missed';
@@ -94,7 +210,7 @@ export function compareWords(target, recognized) {
   const raw = n ? (correct + close * 0.5) / (n + extra.length * 0.5) : 0;
 
   return {
-    words: display.map(t => ({ text: t.text, status: t.norm ? t.status : 'correct', heard: t.heard })),
+    words: display.map(t => ({ text: t.text, status: t.norm ? t.status : 'correct', heard: t.heard, sameSound: t.sameSound })),
     extra,
     score: Math.round(raw * 100),
   };

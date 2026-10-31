@@ -1222,7 +1222,8 @@ body::after {
   border-radius: 8px;
   padding: 8px 10px;
 }
-.roleplay-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.roleplay-check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; min-height: 44px; }
+.roleplay-check input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; }
 .roleplay-chat-header {
   display: flex;
   justify-content: space-between;
@@ -1688,3 +1689,4 @@ body::after {
 .course-check { background: none; border: none; cursor: pointer; font-size: 1.3rem; min-width: 44px; min-height: 44px; padding: 0; }
 .course-go { flex-shrink: 0; }
 .course-doing { font-style: normal; font-size: 0.75rem; color: var(--warning-2); border: 1px solid rgba(247, 151, 30, 0.45); border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
+.sh-word.same-sound { border-bottom: 1px dotted rgba(255, 255, 255, 0.6); cursor: help; }

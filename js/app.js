@@ -1503,11 +1503,16 @@ function setRoleplayBusy(busy) {
 
 async function requestRoleplayTurn(message) {
   const s = roleplaySession;
-  return callGemini('roleplay', {
+  const result = await callGemini('roleplay', {
     scenario: s.scenario, aiRole: s.aiRole, userRole: s.userRole, level: s.level,
     history: s.history.slice(-ROLEPLAY_HISTORY_LIMIT),
     message,
   }, { temperature: 0.8 });
+  // AI가 예상과 다른 형태로 답해도 빈 말풍선이 나오지 않게 검증하고 모양을 맞춤
+  if (!result || typeof result.reply !== 'string' || !result.reply.trim()) throw new Error('AI가 예상과 다른 형태로 답했어요. 다시 시도해 주세요.');
+  if (!result.feedback || typeof result.feedback !== 'object') result.feedback = null;
+  if (!Array.isArray(result.suggestions)) result.suggestions = [];
+  return result;
 }
 
 function finishRoleplayIfEnded(result) {
@@ -1891,9 +1896,9 @@ function renderShadowingFeedback(container, target, recognized) {
   const count = (st) => words.filter(w => w.status === st).length;
   const grade = score >= 90 ? 'good' : score >= 60 ? 'ok' : 'needs-work';
   const wordsHtml = words.map(w => {
-    const tip = w.status === 'wrong' || w.status === 'close' ? `들린 말: ${w.heard}` : w.status === 'missed' ? '인식되지 않음' : '';
+    const tip = w.status === 'wrong' || w.status === 'close' ? `들린 말: ${w.heard}` : w.status === 'missed' ? '인식되지 않음' : w.sameSound ? `소리가 같은 단어(${w.sameSound})로 인식됐어요 — 맞게 읽은 거예요` : '';
     const clickable = w.status !== 'correct' ? ' data-speak="1"' : '';
-    return `<span class="sh-word ${w.status}"${clickable} title="${escapeHtml(tip).replace(/"/g, '&quot;')}">${escapeHtml(w.text)}</span>`;
+    return `<span class="sh-word ${w.status}${w.sameSound ? ' same-sound' : ''}"${clickable} title="${escapeHtml(tip).replace(/"/g, '&quot;')}">${escapeHtml(w.text)}</span>`;
   }).join(' ');
 
   container.innerHTML = `

@@ -155,7 +155,8 @@ Rules:
 2. If the learner writes in Korean, treat it as "how do I say this in English": put the natural English in feedback.corrected, explain in comment, set score 0, and reply in character as if they had said it.
 3. Judge naturalness for spoken conversation, not formal writing. Minor punctuation or capitalization issues do not lower the score.
 4. Set ended to true only when the scene is clearly finished (e.g. order complete and goodbye said).
-5. No other text outside JSON.`;
+5. In feedback.corrected prefer the wording a native speaker would actually say in this situation (e.g. "pick up a package" or "receive a package", not an awkward literal phrasing). Change as little of the learner's own sentence as needed.
+6. No other text outside JSON.`;
     case 'nuance':
       return `You are an expert English linguist. Explain the nuanced differences between confusing English words or expressions for Korean learners.
 Respond ONLY with valid JSON: 
