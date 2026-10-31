@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=11">
+  <link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body>
   <div id="app">
@@ -65,6 +65,10 @@
       <button class="tab-btn" data-tab="roleplay">
         <span class="tab-icon">🎭</span>
         <span class="tab-label">역할극</span>
+      </button>
+      <button class="tab-btn" data-tab="mistakes">
+        <span class="tab-icon">📉</span>
+        <span class="tab-label">내 실수</span>
       </button>
       <button class="tab-btn" data-tab="vocabulary">
         <span class="tab-icon">📓</span>
@@ -278,6 +282,30 @@
             </div>
             <button class="flashcard-close" id="flashcard-close">✕ 닫기</button>
           </div>
+        </div>
+      </section>
+
+      <!-- My Mistakes Pane -->
+      <section class="tab-pane" id="pane-mistakes">
+        <div class="glass-card input-card">
+          <div class="card-header">
+            <h2>📉 내 실수</h2>
+            <p class="card-desc">영작 교정과 역할극에서 틀렸던 표현을 모아, 자주 반복하는 실수 유형을 찾아 드려요</p>
+          </div>
+          <div class="mk-summary" id="mk-summary"></div>
+          <div class="input-actions">
+            <span class="mk-hint" id="mk-hint"></span>
+            <button class="submit-btn" id="mk-analyze"><span class="btn-text">🔍 내 실수 분석하기</span></button>
+          </div>
+        </div>
+        <div class="glass-card output-card" id="mk-report"></div>
+        <div class="glass-card mk-practice" id="mk-practice" style="display:none;"></div>
+        <div class="glass-card" id="mk-list-card">
+          <details id="mk-details">
+            <summary id="mk-list-title">📋 실수 기록</summary>
+            <div id="mk-list"></div>
+            <div class="mk-list-actions"><button class="audio-btn" id="mk-clear">기록 모두 지우기</button></div>
+          </details>
         </div>
       </section>
 
@@ -556,7 +584,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=14"></script>
+  <script type="module" src="js/app.js?v=18"></script>
 
 
 

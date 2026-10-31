@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-27",
+  "updated": "2026-10-31",
   "resources": [
     {
       "lang": "en",
@@ -63,6 +63,42 @@
       "desc": "쉬운 영어로 쓴 위키백과. 관심 있는 주제로 읽기 연습을 할 수 있어요. (내용 복사 시 CC BY-SA 출처 표기 필요)",
       "level": "기초~중급",
       "url": "https://simple.wikipedia.org/"
+    },
+    {
+      "lang": "en",
+      "type": "link",
+      "license": "public-domain",
+      "title": "NASA 영상·음성·기사",
+      "desc": "우주·과학 주제의 청취·읽기 자료(중급~고급). NASA 미디어 대부분은 미국에서 저작권이 없지만, '제3자 저작물' 표시가 있는 것과 NASA 로고, 사람의 초상은 예외예요. 크레딧을 표기하세요.",
+      "level": "중급~고급",
+      "url": "https://www.nasa.gov/multimedia/"
+    },
+    {
+      "lang": "en",
+      "type": "link",
+      "license": "cc-by",
+      "title": "StoryWeaver (Pratham Books)",
+      "desc": "어린이용 짧은 이야기(일부는 음성 포함), 쉬운 영어. 기본 라이선스는 CC BY 4.0이지만 이야기마다 다를 수 있어 각 이야기 페이지의 표시를 확인하고, 글·그림·번역 크레딧을 표기해야 해요.",
+      "level": "기초",
+      "url": "https://storyweaver.org.in/"
+    },
+    {
+      "lang": "en",
+      "type": "link",
+      "license": "cc-by",
+      "title": "Global Storybooks",
+      "desc": "여러 나라의 어린이 이야기를 여러 언어와 음성으로 제공하는 포털. 대부분 CC BY 4.0이지만 일부는 비영리(NC) 조건이라, 이야기마다 표시된 라이선스를 확인하세요.",
+      "level": "기초",
+      "url": "https://globalstorybooks.net/"
+    },
+    {
+      "lang": "en",
+      "type": "link",
+      "license": "cc-by-nc-sa",
+      "title": "OpenLearn (영국 오픈유니버시티)",
+      "desc": "대학 수준의 무료 코스·영상·음성. 코스마다 CC BY-NC-SA(비영리·동일조건)가 표시되며(옛 코스는 2.0 버전), 제3자 저작물은 제외돼요. 코스에 적힌 라이선스를 따르세요. 접속이 막히면 브라우저에서 직접 여세요.",
+      "level": "중급~고급",
+      "url": "https://www.open.edu/openlearn/"
     },
     {
       "lang": "ja",

@@ -49,6 +49,43 @@ Rules:
 3. keyVocabulary: 1-3 items per sentence, copied exactly as they appear in the sentence. Skip very basic words.
 4. NEVER repeat or closely paraphrase any sentence in the "previously shown" list.
 5. No other text outside JSON.`;
+    case 'mistake_report':
+      return `You are an English teacher analyzing a Korean learner's recurring mistakes.
+You receive numbered items. Each is something the learner wrote or said, followed by its corrected version and sometimes a teacher comment.
+Group the items by the TYPE of error and explain the patterns.
+Respond ONLY with valid JSON:
+{
+  "summaryKo": "2-3 sentences in Korean (존댓말) describing the learner's overall pattern, encouraging in tone",
+  "categories": [
+    {
+      "key": "short-english-slug",
+      "name": "Korean category name, for example 관사(a/the), 시제, 주어-동사 일치, 전치사, 어순, 단어 선택, 복수·셀 수 없는 명사, 한국어식 직역 표현, 철자·구두점",
+      "explanationKo": "1-2 sentences in Korean: why Korean speakers often make this mistake and the core rule",
+      "tipKo": "one concrete, short habit or trick to avoid it",
+      "itemIds": [1, 4]
+    }
+  ],
+  "priorityKo": "which category to fix first and why, in one or two Korean sentences"
+}
+Rules:
+1. Use at most 6 categories. Every item number must appear in exactly one category's itemIds, and only numbers that were given may be used.
+2. Items that fit nowhere go into a category named "기타" with key "other".
+3. Order categories from most to least frequent.
+4. Base every statement on the given items. Never invent mistakes. If there are only a few items, say the pattern is still tentative.
+5. No other text outside JSON.`;
+    case 'mistake_practice':
+      return `You create multiple-choice practice questions for a Korean learner of English.
+Respond ONLY with valid JSON:
+{ "exercises": [ { "sentence": "an English sentence with exactly one ____ blank", "options": ["...", "...", "..."], "answer": "the correct option, copied exactly from options", "explanationKo": "short Korean explanation (존댓말) of why the answer is right and why the common wrong choice is wrong" } ] }
+Rules:
+1. Write exactly 5 questions that all practice the given error type.
+2. Each question has 3 or 4 options and exactly one option is correct in context. The wrong options must be the mistakes learners really make.
+3. Do not copy the learner's own sentences; write new everyday sentences.
+4. Each question has EXACTLY ONE blank written as ____ in the whole text. The sentence alone must make the answer certain: add a clue as ordinary words with no blank, for example "I bought a bag yesterday. ____ bag was cheap." (answer: The) or "Yesterday, she ____ home early." (answer: went). Never put a second blank in a clue sentence.
+5. Before finalizing each question, test every wrong option: it must be clearly wrong for a native speaker in that exact sentence. If another option could also sound natural, rewrite the question.
+6. For article questions: avoid uncountable or abstract nouns (advice, information, news) unless "—" (meaning no article) is one of the options, and never write a blank where both "a/an" and "the" would be natural.
+7. Match the learner level given in the user message.
+8. No other text outside JSON.`;
     case 'translate_batch':
       return `You translate English video subtitle lines into natural, conversational Korean for a Korean learner.
 Respond ONLY with valid JSON: { "translations": [ { "id": 1, "ko": "..." } ] }
@@ -136,6 +173,16 @@ export function getUserPrompt(mode, data) {
       let prompt = `Topic: ${data.topic}\nLearner level: ${getLevelRule(data.level)}`;
       if (data.avoid?.length) prompt += `\nPreviously shown (do NOT repeat or closely paraphrase):\n${data.avoid.map(s => `- ${s}`).join('\n')}`;
       return prompt + '\nWrite 5 example sentences in JSON as instructed.';
+    }
+    case 'mistake_report': {
+      const clean = (t) => String(t ?? '').replace(/\s+/g, ' ').trim();
+      const lines = (data.items || []).map((m, i) => `${i + 1}. [${m.source === 'roleplay' ? 'speaking' : 'writing'}] "${clean(m.original)}" -> "${clean(m.corrected)}"${m.comment ? ` (comment: ${clean(m.comment).slice(0, 160)})` : ''}`).join('\n');
+      return `Learner mistakes:\n${lines}\nAnalyze them in JSON as instructed.`;
+    }
+    case 'mistake_practice': {
+      const clean = (t) => String(t ?? '').replace(/\s+/g, ' ').trim();
+      const examples = (data.examples || []).map(m => `- wrong: "${clean(m.original)}" / correct: "${clean(m.corrected)}"`).join('\n');
+      return `Error type: ${data.name}\nWhy it happens: ${data.explanation}\nThe learner's own examples:\n${examples}\nLearner level: ${getLevelRule(data.level)}\nWrite 5 questions in JSON as instructed.`;
     }
     case 'translate_batch':
       return `Translate these subtitle lines and return JSON as instructed:\n${(data.items || []).map((t, i) => `${i + 1}. ${String(t).replace(/\s+/g, ' ')}`).join('\n')}`;

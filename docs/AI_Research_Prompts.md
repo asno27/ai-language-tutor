@@ -152,3 +152,15 @@ English-grammar.at, UsingEnglish.com, LibriVox, Project Gutenberg, TED(CC BY-ND�
 3. 통과한 것만 `data/resources.json`(자료실) 또는 `data/worksheet.json`(학습지)에 반영하고, 
    학습지에는 출처·라이선스·원본 URL을 함께 기록합니다. (`docs/Worksheet_Sources.md` 참고)
 4. 실패한 항목과 이유도 `docs/Worksheet_Sources.md`의 "검증 기록"에 남겨, 같은 후보를 다시 조사하지 않게 합니다.
+
+---
+
+## 받은 결과를 확인해 보니 (2026-10-31 사례)
+
+첫 결과(Gemini 딥리서치, 학습지 소재 7곳)를 검증했을 때 나온 문제들입니다. 다음 결과를 받을 때 같은 점을 의심하세요.
+- **모든 줄을 "미확인"으로 표시** — 규칙대로 솔직하게 적은 것이지만, 그만큼 **직접 확인해야 쓸 수 있다**는 뜻.
+- **라이선스 "근거 URL" 중 일부가 404** (2/7). 추측해서 주소를 만든 흔적.
+- **예시 콘텐츠 주소가 가짜** (NASA 유튜브 `watch?v=nasa-latest-mission`). 앱 사이트는 아무 주소나 200으로 응답하므로 "열린다"만으로는 실존을 알 수 없음.
+- 라이선스 이름의 **세부가 틀림** (OpenLearn: NC가 아니라 NC-**SA**, 코스마다 버전이 다름).
+- 반대로 **방향 자체는 맞은 것**도 많음 (NASA, StoryWeaver, OpenLearn).
+- 받은 파일이 **최종 보고서가 아니라 "사고 과정 기록"** 일 수 있음. 딥리서치 도구의 마지막 보고서 부분을 복사해 달라고 하세요.

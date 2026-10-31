@@ -2,7 +2,7 @@
 import { SpeechManager, speak } from './speech.js';
 import { pickDailyScenes, ROLEPLAY_SCENARIOS, LEVELS, DEFAULT_LEVEL, EXAMPLE_TOPICS } from './prompts.js';
 import { compareWords } from './shadowing.js';
-import { logActivity, logMistake, getStats, setGoal, GOAL_CHOICES, GOAL_KEY, loadStudyDays, dayCount, dateKey, applyRemoteStudyDays, collectAllStudyDays, applyRemoteMistakes, collectAllMistakes } from './activity.js';
+import { logActivity, logMistake, getStats, setGoal, GOAL_CHOICES, GOAL_KEY, loadStudyDays, dayCount, dateKey, applyRemoteStudyDays, collectAllStudyDays, applyRemoteMistakes, collectAllMistakes, loadMistakes, deleteMistake, clearMistakes } from './activity.js';
 import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount, applyRemoteVocab, collectAllVocab } from './vocabulary.js';
 import { registerSyncKind, queueChange, onSyncStatus, enableSync, disableSync, syncNow, isSyncEnabled, getSyncCode, formatCode, isValidCode, getLastSyncAt } from './sync.js';
 
@@ -360,7 +360,9 @@ async function handleWritingSubmit() {
     renderWritingResult(data);
     logActivity('writing');
     // 틀린 문장은 "내 실수" 기록으로 남김 (반복 실수 분석용)
-    if (data && data.isCorrect === false) logMistake({ source: 'writing', original: text, corrected: data.corrected, comment: data.feedback });
+    if (data && data.isCorrect === false && logMistake({ source: 'writing', original: text, corrected: data.corrected, comment: data.feedback })) {
+      writingOutput.insertAdjacentHTML('beforeend', '<div class="mistake-saved">📉 틀린 표현을 <b>내 실수</b>에 저장했어요</div>');
+    }
   }
   catch (e) { showError(writingOutput, e.message); }
   finally { hideLoading(); writingSubmit.disabled = false; }
@@ -2369,6 +2371,7 @@ const RESOURCE_LICENSES = {
   'public-domain': { label: '퍼블릭 도메인', cls: 'free' },
   'cc-by': { label: 'CC BY · 출처 표기', cls: 'cc' },
   'cc-by-sa': { label: 'CC BY-SA · 출처 표기', cls: 'cc' },
+  'cc-by-nc-sa': { label: 'CC BY-NC-SA · 비영리·동일조건', cls: 'cc' },
   copyright: { label: '저작권 있음 · 링크만', cls: 'link' },
 };
 let resourcesLang = 'en';
@@ -2480,3 +2483,231 @@ streakBadge.addEventListener('click', () => {
 streakGoalSelect.addEventListener('change', () => setGoal(Number(streakGoalSelect.value)));
 window.addEventListener('activity-changed', renderStreak);
 renderStreak();
+
+
+// === 📉 내 실수 분석 (Phase 5.1) ===
+// 영작 교정·역할극에서 쌓인 "틀린 표현"(mistake_log)을 AI가 유형별로 묶고, 유형별 객관식 연습 문제를 만들어 줌.
+const MK_REPORT_KEY = 'mistake_report';
+const MK_MIN_ITEMS = 3;       // 이만큼은 있어야 분석 의미가 있음
+const MK_MAX_ITEMS = 60;      // AI에 보내는 최근 기록 수
+const mkSummaryEl = $('#mk-summary');
+const mkHintEl = $('#mk-hint');
+const mkAnalyzeBtn = $('#mk-analyze');
+const mkReportEl = $('#mk-report');
+const mkPracticeEl = $('#mk-practice');
+const mkListEl = $('#mk-list');
+const mkListTitle = $('#mk-list-title');
+let mkBusy = false;
+let mkPracticeToken = 0;
+
+function loadMistakeReport() {
+  try { const r = JSON.parse(localStorage.getItem(MK_REPORT_KEY)); return r && Array.isArray(r.categories) ? r : null; } catch { return null; }
+}
+const mkSource = (src) => src === 'roleplay' ? '🎭 말하기' : '✍️ 영작';
+const mkDate = (iso) => new Date(iso).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+
+function mkExampleHtml(m) {
+  return `<div class="mk-ex">
+    <div><span class="mk-wrong">${escapeHtml(m.original)}</span></div>
+    <div><span class="mk-arrow">→</span> <span class="mk-right">${escapeHtml(m.corrected)}</span> <button class="rp-tool" data-speak="${escapeAttr(m.corrected)}" aria-label="듣기">🔊</button></div>
+    ${m.comment ? `<div class="mk-comment">${escapeHtml(m.comment)}</div>` : ''}
+  </div>`;
+}
+
+function renderMistakeTab() {
+  const all = loadMistakes();
+  const writing = all.filter(m => m.source !== 'roleplay').length;
+  const speaking = all.length - writing;
+  const report = loadMistakeReport();
+  const analyzed = new Set(report?.analyzedIds || []);
+  const fresh = report ? all.filter(m => !analyzed.has(m.id)).length : all.length;
+
+  mkSummaryEl.innerHTML = all.length
+    ? `기록 <b>${all.length}개</b> <span class="mk-sub">(✍️ 영작 ${writing} · 🎭 말하기 ${speaking})</span>`
+    : '아직 기록이 없어요. <b>영작 교정</b>이나 <b>역할극</b>에서 틀린 표현이 나오면 여기에 자동으로 쌓여요.';
+
+  const enough = all.length >= MK_MIN_ITEMS;
+  mkAnalyzeBtn.disabled = mkBusy || !enough || (report && fresh === 0);
+  mkAnalyzeBtn.querySelector('.btn-text').textContent = report ? '🔄 다시 분석하기' : '🔍 내 실수 분석하기';
+  mkHintEl.textContent = !enough
+    ? `${MK_MIN_ITEMS}개 이상 쌓이면 분석할 수 있어요 (지금 ${all.length}개)`
+    : report ? (fresh ? `새 기록 ${fresh}개가 있어요` : '마지막 분석 이후 새 기록이 없어요') : (all.length < 10 ? '기록이 10개 이상이면 더 정확해요' : '');
+
+  renderMistakeReport(report, all);
+  renderMistakeList(all);
+}
+
+function renderMistakeReport(report, all) {
+  if (!report) {
+    mkReportEl.innerHTML = '<div class="placeholder-message"><span class="placeholder-icon">🔍</span><p>[내 실수 분석하기]를 누르면 자주 틀리는 유형과 고치는 방법을 알려드려요</p></div>';
+    return;
+  }
+  const byId = new Map(all.map(m => [m.id, m]));
+  const cats = report.categories.map((c, index) => ({ ...c, index, items: c.ids.map(id => byId.get(id)).filter(Boolean) })).filter(c => c.items.length);
+  const at = new Date(report.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  let html = `<div class="mk-report-head">📊 분석 결과 <span class="mk-sub">${at} · 기록 ${report.analyzedIds.length}개 기준</span></div>`;
+  if (report.summaryKo) html += `<p class="mk-text">${escapeHtml(report.summaryKo)}</p>`;
+  if (report.priorityKo) html += `<div class="mk-priority">🎯 <b>먼저 고칠 것</b> — ${escapeHtml(report.priorityKo)}</div>`;
+  html += '<div class="mk-disclaimer">AI가 만든 분석이라 가끔 설명이 부정확할 수 있어요. 이상하다 싶으면 영작 교정 탭이나 뉘앙스 질문으로 한 번 더 확인해 보세요.</div>';
+  cats.forEach(c => {
+    const shown = c.items.slice(-2).reverse();
+    const rest = c.items.length - shown.length;
+    html += `<div class="mk-cat">
+      <div class="mk-cat-head"><span class="mk-cat-name">${escapeHtml(c.name)}</span><span class="mk-cat-count">${c.items.length}번</span></div>
+      ${c.explanationKo ? `<p class="mk-text">${escapeHtml(c.explanationKo)}</p>` : ''}
+      ${c.tipKo ? `<div class="mk-tip">💡 ${escapeHtml(c.tipKo)}</div>` : ''}
+      ${shown.map(mkExampleHtml).join('')}
+      ${rest > 0 ? `<div class="mk-sub">외 ${rest}개는 아래 기록에서 볼 수 있어요</div>` : ''}
+      <button class="audio-btn mk-practice-btn" data-cat="${c.index}">✏️ 이 유형 연습하기</button>
+    </div>`;
+  });
+  mkReportEl.innerHTML = html;
+}
+
+function renderMistakeList(all) {
+  mkListTitle.textContent = `📋 실수 기록 (${all.length}개)`;
+  mkListEl.innerHTML = all.length
+    ? [...all].reverse().map(m => `<div class="mk-item">
+        <div class="mk-item-top"><span class="mk-sub">${mkSource(m.source)} · ${mkDate(m.at)}</span><button class="rp-tool" data-mk-del="${escapeAttr(m.id)}" aria-label="이 기록 삭제">🗑️</button></div>
+        ${mkExampleHtml(m)}
+      </div>`).join('')
+    : '<div class="mk-sub" style="padding:8px 0">기록이 없어요.</div>';
+  $('#mk-clear').style.display = all.length ? '' : 'none';
+}
+
+// --- 분석
+async function analyzeMistakes() {
+  if (mkBusy) return;
+  const items = loadMistakes().slice(-MK_MAX_ITEMS);
+  if (items.length < MK_MIN_ITEMS) return;
+  mkBusy = true;
+  mkAnalyzeBtn.disabled = true;
+  mkReportEl.innerHTML = '<div class="placeholder-message"><span class="placeholder-icon">⏳</span><p>AI가 내 실수를 분석하고 있어요...</p></div>';
+  try {
+    const result = await callGemini('mistake_report', { items }, { temperature: 0.2 });
+    const cats = Array.isArray(result?.categories) ? result.categories : [];
+    const used = new Set();
+    let categories = cats.map(c => {
+      const ids = [...new Set((Array.isArray(c.itemIds) ? c.itemIds : []).map(Number))]
+        .filter(n => Number.isInteger(n) && n >= 1 && n <= items.length && !used.has(n));
+      ids.forEach(n => used.add(n));
+      return { key: String(c.key || '').slice(0, 40), name: String(c.name || '기타').slice(0, 40), explanationKo: String(c.explanationKo || ''), tipKo: String(c.tipKo || ''), ids: ids.map(n => items[n - 1].id) };
+    }).filter(c => c.ids.length);
+    // AI가 빠뜨린 기록은 "기타"로 모아 하나도 사라지지 않게 함
+    const missed = items.map((m, i) => i + 1).filter(n => !used.has(n));
+    if (missed.length) categories.push({ key: 'other', name: '기타', explanationKo: '', tipKo: '', ids: missed.map(n => items[n - 1].id) });
+    if (!categories.length) throw new Error('분석 결과를 받지 못했어요. 다시 시도해 주세요.');
+    categories.sort((a, b) => b.ids.length - a.ids.length);
+    localStorage.setItem(MK_REPORT_KEY, JSON.stringify({
+      at: new Date().toISOString(), analyzedIds: items.map(m => m.id),
+      summaryKo: String(result.summaryKo || ''), priorityKo: String(result.priorityKo || ''), categories,
+    }));
+    logActivity('mistake_report');
+  } catch (e) {
+    mkBusy = false;
+    renderMistakeTab();
+    showError(mkReportEl, e.message);
+    return;
+  }
+  mkBusy = false;
+  renderMistakeTab();
+}
+mkAnalyzeBtn.addEventListener('click', analyzeMistakes);
+
+// --- 연습 문제 (객관식)
+function shuffled(list) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+function validExercise(ex) {
+  // 빈칸(____)은 문제당 정확히 1개여야 함 (여러 개면 보기가 어느 칸에 들어가는지 알 수 없음)
+  if (!ex || typeof ex.sentence !== 'string' || (ex.sentence.match(/_{2,}/g) || []).length !== 1 || !Array.isArray(ex.options)) return null;
+  const options = [...new Set(ex.options.map(o => String(o).trim()).filter(Boolean))];
+  const answer = String(ex.answer ?? '').trim();
+  if (options.length < 2 || options.length > 5 || !options.includes(answer)) return null;
+  return { sentence: ex.sentence.trim(), options: shuffled(options), answer, explanationKo: String(ex.explanationKo || '') };
+}
+
+async function startMistakePractice(catIndex) {
+  const report = loadMistakeReport();
+  const cat = report?.categories[catIndex];
+  if (!cat) return;
+  const byId = new Map(loadMistakes().map(m => [m.id, m]));
+  const examples = cat.ids.map(id => byId.get(id)).filter(Boolean).slice(-3);
+  const token = ++mkPracticeToken;
+  mkPracticeEl.style.display = 'block';
+  mkPracticeEl.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">⏳</span><p>"${escapeHtml(cat.name)}" 연습 문제를 만들고 있어요...</p></div>`;
+  mkPracticeEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  try {
+    const result = await callGemini('mistake_practice', { name: cat.name, explanation: cat.explanationKo, examples, level: getUserLevel() }, { temperature: 0.4 });
+    if (token !== mkPracticeToken) return;
+    const exercises = (result?.exercises || []).map(validExercise).filter(Boolean).slice(0, 5);
+    if (exercises.length < 3) throw new Error('연습 문제를 충분히 만들지 못했어요. 다시 시도해 주세요.');
+    renderMistakePractice(cat, catIndex, exercises);
+  } catch (e) {
+    if (token !== mkPracticeToken) return;
+    showError(mkPracticeEl, e.message);
+    mkPracticeEl.insertAdjacentHTML('beforeend', `<div style="margin-top:1rem"><button class="audio-btn" id="mk-retry">🔄 다시 시도</button></div>`);
+    document.getElementById('mk-retry').addEventListener('click', () => startMistakePractice(catIndex));
+  }
+}
+
+function renderMistakePractice(cat, catIndex, exercises) {
+  let answered = 0, correct = 0;
+  mkPracticeEl.innerHTML = `<div class="mk-report-head">✏️ ${escapeHtml(cat.name)} 연습 <span class="mk-sub">${exercises.length}문제</span></div><div class="mk-disclaimer">AI가 만든 문제라 가끔 정답이 애매할 수 있어요. 그럴 땐 건너뛰어도 괜찮아요.</div><div id="mk-questions"></div><div id="mk-result"></div>`;
+  const box = document.getElementById('mk-questions');
+  exercises.forEach((ex, i) => {
+    const q = document.createElement('div');
+    q.className = 'mk-q';
+    q.innerHTML = `<div class="mk-q-text">${i + 1}. ${escapeHtml(ex.sentence).replace(/_{2,}/, '<span class="mk-blank">＿＿＿</span>')}</div>
+      <div class="mk-opts">${ex.options.map(o => `<button class="mk-opt" data-o="${escapeAttr(o)}">${escapeHtml(o)}</button>`).join('')}</div>
+      <div class="mk-explain" style="display:none"></div>`;
+    q.querySelectorAll('.mk-opt').forEach(btn => btn.addEventListener('click', () => {
+      if (q.dataset.done) return;
+      q.dataset.done = '1';
+      const ok = btn.dataset.o === ex.answer;
+      q.querySelectorAll('.mk-opt').forEach(b => {
+        b.disabled = true;
+        if (b.dataset.o === ex.answer) b.classList.add('right');
+        else if (b === btn) b.classList.add('wrong');
+      });
+      const explain = q.querySelector('.mk-explain');
+      explain.style.display = 'block';
+      explain.innerHTML = `${ok ? '✅ 정답!' : `❌ 정답은 <b>${escapeHtml(ex.answer)}</b>`}${ex.explanationKo ? `<br>${escapeHtml(ex.explanationKo)}` : ''}`;
+      answered++; if (ok) correct++;
+      if (answered === exercises.length) {
+        logActivity('mistake_practice');
+        document.getElementById('mk-result').innerHTML = `<div class="mk-score">🎯 ${correct}/${exercises.length} 정답</div>
+          <div class="mk-result-actions"><button class="submit-btn" id="mk-again"><span class="btn-text">🔄 새 문제 받기</span></button><button class="audio-btn" id="mk-close">닫기</button></div>`;
+        document.getElementById('mk-again').addEventListener('click', () => startMistakePractice(catIndex));
+        document.getElementById('mk-close').addEventListener('click', () => { mkPracticeEl.style.display = 'none'; mkPracticeEl.innerHTML = ''; });
+      }
+    }));
+    box.appendChild(q);
+  });
+  makeTextClickable(box);
+}
+
+mkReportEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.mk-practice-btn');
+  if (btn) startMistakePractice(Number(btn.dataset.cat));
+});
+
+// --- 기록 삭제
+mkListEl.addEventListener('click', (e) => {
+  const del = e.target.closest('[data-mk-del]');
+  if (del) deleteMistake(del.dataset.mkDel);
+});
+$('#mk-clear').addEventListener('click', () => {
+  if (confirm('실수 기록을 모두 지울까요? (동기화가 켜져 있으면 다른 기기에서도 지워져요)')) {
+    clearMistakes();
+    localStorage.removeItem(MK_REPORT_KEY);
+  }
+});
+
+// --- 탭 열 때·기록이 바뀔 때 화면 갱신
+document.querySelector('.tab-btn[data-tab="mistakes"]').addEventListener('click', renderMistakeTab);
+window.addEventListener('mistakes-changed', () => { if ($('#pane-mistakes').classList.contains('active')) renderMistakeTab(); });
+renderMistakeTab();

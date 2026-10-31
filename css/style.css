@@ -1606,3 +1606,47 @@ body::after {
   border-radius: 50%;
   background: var(--warning-1);
 }
+
+/* === 내 실수 (Phase 5.1) === */
+.mk-summary { color: var(--text-heading); font-size: 1.05rem; margin-bottom: 0.8rem; }
+.mk-sub { color: rgba(255, 255, 255, 0.5); font-size: 0.8rem; font-weight: 400; }
+.mk-hint { font-size: 0.85rem; color: rgba(255, 255, 255, 0.6); }
+.mk-report-head { font-weight: 700; color: var(--text-heading); margin-bottom: 0.6rem; }
+.mk-text { color: var(--text-body); line-height: 1.7; margin-bottom: 0.6rem; }
+.mk-priority {
+  padding: 10px 14px; margin-bottom: 1rem; border-radius: 10px;
+  background: rgba(247, 151, 30, 0.12); border: 1px solid rgba(247, 151, 30, 0.35); color: var(--text-body); line-height: 1.6;
+}
+.mk-cat { padding: 1rem; margin-bottom: 0.9rem; border-radius: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); }
+.mk-cat-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+.mk-cat-name { font-weight: 700; color: var(--text-heading); font-size: 1.05rem; }
+.mk-cat-count { background: rgba(255, 107, 107, 0.18); color: var(--error); border-radius: 12px; padding: 2px 10px; font-size: 0.8rem; font-weight: 700; }
+.mk-tip { padding: 8px 12px; margin: 0.4rem 0 0.7rem; border-radius: 8px; background: rgba(102, 126, 234, 0.14); color: var(--text-body); font-size: 0.9rem; line-height: 1.6; }
+.mk-ex { padding: 8px 0; border-top: 1px dashed rgba(255, 255, 255, 0.08); line-height: 1.6; }
+.mk-wrong { color: var(--error); text-decoration: line-through; text-decoration-color: rgba(255, 107, 107, 0.5); }
+.mk-right { color: var(--success-1); font-weight: 600; }
+.mk-arrow { color: rgba(255, 255, 255, 0.4); }
+.mk-comment { font-size: 0.82rem; color: rgba(255, 255, 255, 0.55); margin-top: 2px; }
+.mk-practice-btn { margin-top: 0.7rem; }
+.mk-item { padding: 8px 0; border-top: 1px solid var(--glass-border); }
+.mk-item-top { display: flex; justify-content: space-between; align-items: center; }
+#mk-list-title { cursor: pointer; color: var(--text-heading); font-weight: 600; }
+#mk-list { margin-top: 0.6rem; max-height: 50vh; overflow-y: auto; }
+.mk-list-actions { margin-top: 0.8rem; }
+.mistake-saved { margin-top: 0.8rem; padding: 8px 12px; border-radius: 10px; font-size: 0.85rem; background: rgba(247, 151, 30, 0.12); border: 1px solid rgba(247, 151, 30, 0.3); color: var(--text-body); }
+.mk-q { padding: 1rem; margin-bottom: 0.8rem; border-radius: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); }
+.mk-q-text { color: var(--text-heading); font-size: 1.05rem; line-height: 1.7; margin-bottom: 0.7rem; }
+.mk-blank { display: inline-block; min-width: 3.2em; text-align: center; border-bottom: 2px solid var(--accent-primary-1); color: rgba(255, 255, 255, 0.5); }
+.mk-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.mk-opt {
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--glass-border); color: var(--text-body);
+  border-radius: 20px; padding: 8px 16px; font-size: 0.95rem; cursor: pointer; min-height: 40px;
+}
+.mk-opt:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+.mk-opt:disabled { cursor: default; }
+.mk-opt.right { background: rgba(67, 233, 123, 0.18); border-color: rgba(67, 233, 123, 0.55); color: var(--text-heading); }
+.mk-opt.wrong { background: rgba(255, 107, 107, 0.18); border-color: rgba(255, 107, 107, 0.55); color: var(--text-heading); }
+.mk-explain { margin-top: 0.7rem; font-size: 0.9rem; line-height: 1.6; color: var(--text-body); }
+.mk-score { font-size: 1.3rem; font-weight: 800; color: var(--text-heading); margin: 0.6rem 0; }
+.mk-result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.mk-disclaimer { font-size: 0.78rem; color: rgba(255, 255, 255, 0.5); margin: 0 0 0.9rem; line-height: 1.5; }

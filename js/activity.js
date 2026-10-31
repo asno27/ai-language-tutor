@@ -122,7 +122,26 @@ export function logMistake({ source, original, corrected, comment = '' }) {
   list.push(item);
   localStorage.setItem(MISTAKES_KEY, JSON.stringify(list.slice(-MISTAKE_MAX)));
   queueChange('mistake', item.id, item, { updatedAt: Date.parse(at) });
+  window.dispatchEvent(new CustomEvent('mistakes-changed'));
   return true;
+}
+
+/** 실수 기록 한 개 삭제 (다른 기기에도 삭제가 전달됨) */
+export function deleteMistake(id) {
+  const list = loadMistakes();
+  if (!list.some(m => m.id === id)) return false;
+  localStorage.setItem(MISTAKES_KEY, JSON.stringify(list.filter(m => m.id !== id)));
+  queueChange('mistake', id, null, { deleted: true });
+  window.dispatchEvent(new CustomEvent('mistakes-changed'));
+  return true;
+}
+
+export function clearMistakes() {
+  const list = loadMistakes();
+  localStorage.setItem(MISTAKES_KEY, '[]');
+  list.forEach(m => queueChange('mistake', m.id, null, { deleted: true }));
+  window.dispatchEvent(new CustomEvent('mistakes-changed'));
+  return list.length;
 }
 
 // === 동기화 (Phase 2.5 구조에 연결) ===
@@ -150,11 +169,15 @@ export function collectAllStudyDays() {
 }
 
 export function applyRemoteMistakes(changes) {
-  const list = loadMistakes();
+  let list = loadMistakes();
   const ids = new Set(list.map(m => m.id));
   let changed = false;
   for (const c of changes) {
-    if (c.deleted || !c.data?.original || ids.has(c.id)) continue;
+    if (c.deleted) {
+      if (ids.delete(c.id)) { list = list.filter(m => m.id !== c.id); changed = true; }
+      continue;
+    }
+    if (!c.data?.original || ids.has(c.id)) continue;
     list.push({ ...c.data, id: c.id });
     ids.add(c.id);
     changed = true;
@@ -162,6 +185,7 @@ export function applyRemoteMistakes(changes) {
   if (changed) {
     list.sort((a, b) => String(a.at).localeCompare(String(b.at)));
     localStorage.setItem(MISTAKES_KEY, JSON.stringify(list.slice(-MISTAKE_MAX)));
+    window.dispatchEvent(new CustomEvent('mistakes-changed'));
   }
   return changed;
 }
