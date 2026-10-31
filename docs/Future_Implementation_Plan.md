@@ -97,7 +97,6 @@
 | C-9 | **ts-fsrs 도입 검토**: 단어장 복습을 SM-2에서 FSRS로. MIT 라이선스, 활발히 갱신. 보고된 효과는 "같은 기억 유지율에서 복습 20~30% 감소"(2차 자료, 엇갈림). **카드 필드가 10개 이상**(due, stability, difficulty, reps, lapses, state, last_review 등)이라 기존 단어 데이터·동기화 형식에 맞춘 설계와 기존 복습 기록 이전 방법이 필요. 빌드 없이 쓸 번들 파일 필요 | M | | `docs/Tools_And_Data.md` |
 | C-10 | **CEFR-J로 단어 레벨 표시**(예: "B1 단어"): 연구·상업 무료, 출처 표기 필요 | M | | `docs/Tools_And_Data.md` |
 | C-11 | **American English·ShareAmerica 약관 확인**: 사이트가 자동 접속을 막아 못 읽음 → 브라우저에서 약관 확인 후 자료실 추가 여부 결정 | S | ✅ 브라우저로 확인 | `docs/Worksheet_Sources.md` 3-2b |
-| C-12 | **iOS 음성 인식 안내**: caniuse 기준 Safari/iOS는 `webkit` 접두어 지원에 **Siri(받아쓰기)를 켜야 하고, "홈 화면에 추가"한 웹앱과 사파리 뷰 컨트롤러에서는 사용 불가**. 마이크 오류가 날 때 iOS이면 원인과 해결 방법을 한국어로 안내. 먼저 실제 iPhone에서 어떻게 동작하는지 확인(R-4) | S | ✅ iPhone 확인 | `docs/Tools_And_Data.md` |
 
 ### ✅ 추천 진행 순서 (한눈에)
 1. **오늘 10분 — S-1·S-2·S-3** (사용자). 코딩과 병행 가능.
