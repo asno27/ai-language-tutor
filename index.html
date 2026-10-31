@@ -287,6 +287,19 @@
           </div>
         </div>
 
+        <div class="glass-card" id="backup-card">
+          <div class="card-header">
+            <h2>💾 내 데이터 백업</h2>
+            <p class="card-desc">단어장, 학습 기록, 실수, 코스 진행, 역할극 대화를 파일로 저장하거나 불러와요. 브라우저 데이터를 지우거나 기기를 바꿀 때 쓰세요. 불러오면 기존 데이터는 지워지지 않고 합쳐져요.</p>
+          </div>
+          <div class="sync-actions">
+            <button class="audio-btn" id="backup-export">⬇️ 백업 파일 저장</button>
+            <label class="audio-btn" style="cursor:pointer;" for="backup-import-file">⬆️ 백업 파일 불러오기</label>
+            <input type="file" id="backup-import-file" accept="application/json,.json" hidden>
+          </div>
+          <div class="pdf-status" id="backup-status"></div>
+        </div>
+
         <!-- Flashcard Review Overlay -->
         <div class="flashcard-overlay" id="flashcard-overlay" style="display:none;">
           <div class="flashcard-container">
@@ -684,7 +697,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=35"></script>
+  <script type="module" src="js/app.js?v=36"></script>
 
 
 

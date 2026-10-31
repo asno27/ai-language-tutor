@@ -6,7 +6,7 @@ import { logActivity, logMistake, getStats, setGoal, GOAL_CHOICES, GOAL_KEY, loa
 import { markWordDue, saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount, applyRemoteVocab, collectAllVocab } from './vocabulary.js';
 import { loadCefr, cefrBadgeHtml } from './cefr.js';
 import { loadProgress, isStepDone, setStepDone, unitProgress, startStep, checkActiveStep, getActiveStep, applyRemoteCourse, collectAllCourse } from './course.js';
-import { registerSyncKind, queueChange, onSyncStatus, enableSync, disableSync, syncNow, isSyncEnabled, getSyncCode, formatCode, isValidCode, getLastSyncAt } from './sync.js';
+import { exportAllItems, importItems, registerSyncKind, queueChange, onSyncStatus, enableSync, disableSync, syncNow, isSyncEnabled, getSyncCode, formatCode, isValidCode, getLastSyncAt } from './sync.js';
 
 // TTS 함수를 전역으로 노출 (innerHTML onclick에서 사용)
 window.speakText = speak;
@@ -3510,6 +3510,39 @@ document.querySelector('.tab-btn[data-tab="home"]').addEventListener('click', re
   window.addEventListener(ev, () => { if ($('#pane-home').classList.contains('active')) renderHome(); }));
 onLevelChange(() => { if ($('#pane-home').classList.contains('active')) renderHome(); });
 renderHome();
+
+// === 내 데이터 백업 (동기화와 같은 형식의 JSON 파일) ===
+const backupStatus = $('#backup-status');
+
+$('#backup-export').addEventListener('click', () => {
+  const items = exportAllItems();
+  const blob = new Blob([JSON.stringify({ app: 'ai-language-tutor', version: 1, exportedAt: new Date().toISOString(), items })], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ai-tutor-backup-${dateKey()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  backupStatus.textContent = `✅ ${items.length}개 항목을 저장했어요. 이 파일에는 내 학습 기록이 들어 있으니 안전하게 보관하세요.`;
+});
+
+$('#backup-import-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    if (file.size > 20 * 1024 * 1024) throw new Error('파일이 너무 커요.');
+    const data = JSON.parse(await file.text());
+    if (data?.app !== 'ai-language-tutor' || !Array.isArray(data.items)) throw new Error('이 앱의 백업 파일이 아니에요.');
+    if (!confirm(`백업 파일의 ${data.items.length}개 항목을 불러올까요? (이 기기의 기존 데이터는 지워지지 않고 합쳐져요)`)) return;
+    const changed = importItems(data.items);
+    backupStatus.textContent = changed ? `✅ 불러왔어요 (${changed}종류가 새로 합쳐졌어요). 화면을 새로 고치는 중...` : '이미 모두 이 기기에 있는 내용이에요.';
+    if (changed) setTimeout(() => location.reload(), 1200);
+  } catch (err) {
+    backupStatus.textContent = `⚠️ ${err.message || '파일을 읽지 못했어요.'}`;
+  }
+});
 
 // === 홈 화면에 설치 (PWA): 인터넷이 불안정해도 앱이 열리도록 서비스 워커 등록 (개발용 localhost는 제외) ===
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

@@ -88,6 +88,28 @@ function queueEverything() {
   localStorage.setItem(PENDING_KEY, JSON.stringify(pending));
 }
 
+/** 백업용: 동기화되는 모든 데이터를 한 목록으로 (동기화와 같은 형식) */
+export function exportAllItems() {
+  return Object.entries(kinds).flatMap(([kind, handlers]) =>
+    handlers.collectAll().map(item => ({ kind, id: item.id, data: item.data, deleted: !!item.deleted, updatedAt: item.updatedAt })));
+}
+
+/** 백업 파일 가져오기: 동기화와 똑같이 더 최근인 쪽이 이기는 방식으로 합침(지워지는 것 없음). 바뀐 항목 종류 수를 돌려줌 */
+export function importItems(items) {
+  const byKind = {};
+  for (const it of Array.isArray(items) ? items : []) {
+    if (!it || !kinds[it.kind] || typeof it.id !== 'string' || !Number.isFinite(Number(it.updatedAt))) continue;
+    (byKind[it.kind] ||= []).push({ id: it.id, data: it.data ?? null, deleted: !!it.deleted, updatedAt: Number(it.updatedAt) });
+  }
+  let changedKinds = 0;
+  for (const [kind, list] of Object.entries(byKind)) {
+    if (kinds[kind].apply(list)) changedKinds++;
+  }
+  // 동기화가 켜져 있으면 가져온 내용도 다른 기기에 전달되도록 이 기기 전체를 다시 올림
+  if (isSyncEnabled()) { queueEverything(); syncNow(); }
+  return changedKinds;
+}
+
 /** 새 코드를 만들거나(code 없음) 다른 기기의 코드로 연결. 이 기기의 데이터는 서버 데이터와 합쳐짐 */
 export async function enableSync(code) {
   const finalCode = code ? normalizeCode(code) : generateCode();
