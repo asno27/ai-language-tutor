@@ -3309,8 +3309,8 @@ async function loadCourse() {
   }
 }
 
-const COURSE_STEP_ICONS = { grammar: '📐', roleplay: '🎭', examples: '🧩', daily: '📅', review: '🔁', writing: '✍️', mistakes: '📉' };
-const COURSE_STEP_TABS = { grammar: 'grammar', roleplay: 'roleplay', examples: 'examples', daily: 'daily', review: 'vocabulary', writing: 'writing', mistakes: 'mistakes' };
+const COURSE_STEP_ICONS = { grammar: '📐', roleplay: '🎭', examples: '🧩', daily: '📅', review: '🔁', worksheet: '📖', writing: '✍️', mistakes: '📉' };
+const COURSE_STEP_TABS = { grammar: 'grammar', roleplay: 'roleplay', examples: 'examples', daily: 'daily', review: 'vocabulary', worksheet: 'worksheet', writing: 'writing', mistakes: 'mistakes' };
 
 function courseUnitsForLevel() {
   return courseData?.[getUserLevel()] || [];

@@ -44,7 +44,7 @@ const idsIn = (name) => {
   return new Set([...prompts.slice(a, b).matchAll(/\{ id: '([a-z]+)'/g)].map(m => m[1]));
 };
 const valid = { grammar: idsIn('GRAMMAR_TOPICS'), roleplay: idsIn('ROLEPLAY_SCENARIOS'), examples: idsIn('EXAMPLE_TOPICS') };
-const STEP_TYPES = new Set(['grammar', 'roleplay', 'examples', 'daily', 'review', 'writing', 'mistakes']);
+const STEP_TYPES = new Set(['grammar', 'roleplay', 'examples', 'daily', 'review', 'worksheet', 'writing', 'mistakes']);
 const course = json('data/course.json');
 const stepIds = new Set();
 for (const [level, units] of Object.entries(course)) {

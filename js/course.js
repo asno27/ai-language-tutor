@@ -16,6 +16,7 @@ export const STEP_ACTIVITY = {
   examples: 'examples',
   daily: 'daily',
   review: 'review',
+  worksheet: 'worksheet',
   writing: 'writing',
   mistakes: 'mistake_report',
 };
