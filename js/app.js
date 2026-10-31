@@ -3390,3 +3390,73 @@ function startVocabQuiz() {
   });
 }
 $('#start-vocab-quiz').addEventListener('click', startVocabQuiz);
+
+// === 오늘 (홈) 화면: 지금 할 일을 한눈에 ===
+const homeStreakEl = $('#home-streak');
+const homeCardsEl = $('#home-cards');
+
+function goToTab(tab) { document.querySelector(`.tab-btn[data-tab="${tab}"]`).click(); }
+
+async function renderHome() {
+  const s = getStats();
+  const pct = Math.min(100, Math.round((s.todayCount / s.goal) * 100));
+  homeStreakEl.innerHTML = `<div class="home-streak-line">${s.streak > 0 ? `🔥 <b>${s.streak}일 연속</b> 학습 중` : '🔥 오늘 시작하면 <b>1일째</b>예요'} <span class="streak-best">· 오늘 ${Math.min(s.todayCount, 99)}/${s.goal}회${s.goalReached ? ' ✅ 목표 달성!' : ''}</span></div>
+    <div class="streak-bar"><div class="streak-bar-fill" style="width:${pct}%"></div></div>`;
+
+  const cards = [];
+
+  // 1) 다음 코스 단계
+  await loadCourse();
+  if (courseData) {
+    const units = courseUnitsForLevel();
+    const unit = units.find(u => u.steps.some(st => !isStepDone(st.id)));
+    if (unit) {
+      const step = unit.steps.find(st => !isStepDone(st.id));
+      const { done, total } = unitProgress(unit);
+      cards.push(`<div class="glass-card home-card"><div class="home-card-title">🧭 다음 코스 단계 <span class="home-card-sub">${escapeHtml(unit.title)} · ${done}/${total}</span></div>
+        <div class="home-card-body">${COURSE_STEP_ICONS[step.type] || '•'} ${escapeHtml(step.label)}</div>
+        <button class="submit-btn" data-home-step="${escapeAttr(step.id)}"><span class="btn-text">시작하기</span><span class="btn-icon">→</span></button></div>`);
+    } else if (units.length) {
+      cards.push(`<div class="glass-card home-card"><div class="home-card-title">🧭 학습 코스</div><div class="home-card-body">🎉 이 레벨의 코스를 모두 마쳤어요! 맨 위에서 레벨을 올려 보세요.</div></div>`);
+    }
+  }
+
+  // 2) 단어 복습 / 퀴즈
+  const due = getWordsForReview().length;
+  const total = getTotalCount();
+  if (total === 0) {
+    cards.push(`<div class="glass-card home-card"><div class="home-card-title">📓 단어장</div><div class="home-card-body">아직 저장한 단어가 없어요. 사전에서 단어를 찾아 ⭐ 로 저장해 보세요.</div><button class="audio-btn" data-home-go="dictionary">📖 사전 열기</button></div>`);
+  } else if (due > 0) {
+    cards.push(`<div class="glass-card home-card"><div class="home-card-title">🧠 복습할 단어 <span class="home-card-sub">${due}개</span></div><div class="home-card-body">잊기 전에 복습하면 오래 기억돼요.</div><button class="submit-btn" data-home-go="review"><span class="btn-text">복습 시작</span><span class="btn-icon">→</span></button></div>`);
+  } else {
+    cards.push(`<div class="glass-card home-card"><div class="home-card-title">🧠 단어 복습</div><div class="home-card-body">오늘 복습할 단어는 다 했어요 👏 퀴즈로 한 번 더 확인해 볼까요?</div><button class="audio-btn" data-home-go="quiz">🎯 단어 퀴즈</button></div>`);
+  }
+
+  // 3) 오늘의 영어
+  const todayEntry = loadStudyDays()[dateKey()];
+  const dailyDone = (todayEntry?.t?.daily || 0) > 0;
+  cards.push(`<div class="glass-card home-card"><div class="home-card-title">📅 오늘의 영어 ${dailyDone ? '<span class="home-card-sub">✅ 오늘 했어요</span>' : ''}</div><div class="home-card-body">상황별 표현 3개를 듣고 따라 말해 보세요.</div><button class="audio-btn" data-home-go="daily">${dailyDone ? '다시 보기' : '시작하기'}</button></div>`);
+
+  // 4) 내 실수 (쌓였을 때)
+  const mistakeCount = loadMistakes().length;
+  if (mistakeCount >= 3) {
+    cards.push(`<div class="glass-card home-card"><div class="home-card-title">📉 내 실수 <span class="home-card-sub">${mistakeCount}개 쌓였어요</span></div><div class="home-card-body">자주 틀리는 유형을 분석하고 연습해 보세요.</div><button class="audio-btn" data-home-go="mistakes">분석 보기</button></div>`);
+  }
+  homeCardsEl.innerHTML = cards.join('');
+}
+
+homeCardsEl.addEventListener('click', (e) => {
+  const stepBtn = e.target.closest('[data-home-step]');
+  const go = e.target.closest('[data-home-go]');
+  if (stepBtn) { const step = findCourseStep(stepBtn.dataset.homeStep); if (step) openCourseStep(step); return; }
+  if (!go) return;
+  const target = go.dataset.homeGo;
+  if (target === 'review') { goToTab('vocabulary'); $('#start-review').click(); }
+  else if (target === 'quiz') { goToTab('vocabulary'); $('#start-vocab-quiz').click(); }
+  else goToTab(target);
+});
+document.querySelector('.tab-btn[data-tab="home"]').addEventListener('click', renderHome);
+['activity-changed', 'course-changed', 'mistakes-changed'].forEach(ev =>
+  window.addEventListener(ev, () => { if ($('#pane-home').classList.contains('active')) renderHome(); }));
+onLevelChange(() => { if ($('#pane-home').classList.contains('active')) renderHome(); });
+renderHome();

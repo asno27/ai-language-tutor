@@ -1713,3 +1713,11 @@ body::after {
 .rp-history-meta { display: block; font-size: 0.78rem; color: rgba(255, 255, 255, 0.55); margin-top: 2px; }
 .rp-history-title { color: var(--text-heading); margin: 0.8rem 0 0.6rem; }
 .rp-history-chat .rp-msg { margin-bottom: 0.7rem; }
+
+/* === 오늘 (홈) === */
+.home-streak-line { color: var(--text-heading); font-size: 1.05rem; margin-bottom: 8px; }
+.home-card { margin-bottom: 0.8rem; padding: 1rem 1.2rem; }
+.home-card-title { color: var(--text-heading); font-weight: 700; margin-bottom: 0.4rem; }
+.home-card-sub { font-weight: 400; font-size: 0.85rem; color: rgba(255, 255, 255, 0.6); margin-left: 6px; }
+.home-card-body { color: var(--text-body); font-size: 0.95rem; line-height: 1.6; margin-bottom: 0.8rem; }
+.home-card .audio-btn, .home-card .submit-btn { min-height: 44px; }
