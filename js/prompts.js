@@ -72,7 +72,7 @@ Respond ONLY with valid JSON:
 }
 Rules:
 1. Match the learner level in the user message: for beginners use very simple words, short sentences and only the core pattern; for advanced learners add nuance and exceptions.
-2. Give 2-3 patterns, exactly 4 examples, exactly 2 common mistakes typical for Korean speakers, and exactly 4 quiz questions. Vary the quiz: the correct answer must not be the same word in every question, and the questions should test different uses of the topic.
+2. Give 2-3 patterns, exactly 4 examples, exactly 2 common mistakes typical for Korean speakers, and exactly 6 quiz questions (some may be discarded by a later check, so make each one clearly answerable). Vary the quiz: the correct answer must not be the same word in every question, and the questions should test different uses of the topic.
 3. Each quiz question has EXACTLY ONE blank written as ____ in the whole text, and 3 or 4 options with exactly one correct. The sentence alone must make the answer certain (add a clue as ordinary words, such as a time word).
    In "wrongOptions" explain why EVERY wrong option is wrong in that exact sentence. If you cannot convincingly explain why an option is wrong because it could also be natural or correct, replace that option or rewrite the sentence. Never offer two options that are both acceptable.
 4. If the user message lists the learner's own mistakes, address those patterns in the explanation and common mistakes.

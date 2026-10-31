@@ -2823,7 +2823,7 @@ function validGrammar(r) {
     patterns: list(r.patterns).filter(p => p?.form).slice(0, 4).map(p => ({ form: String(p.form), useKo: String(p.useKo || '') })),
     examples: list(r.examples).filter(x => x?.en).slice(0, 5).map(x => ({ en: String(x.en), ko: String(x.ko || '') })),
     commonMistakes: list(r.commonMistakes).filter(m => m?.wrong && m?.right).slice(0, 3).map(m => ({ wrong: String(m.wrong), right: String(m.right), noteKo: String(m.noteKo || '') })),
-    quiz: list(r.quiz).map(validExercise).filter(Boolean).slice(0, 5), // 검수 후 3개로 줄임
+    quiz: list(r.quiz).map(validExercise).filter(Boolean).slice(0, 6), // 검수 후 3개로 줄임
   };
   // 설명이나 예문 중 하나는 있어야 보여줄 가치가 있음
   return entry.explanationKo.length || entry.examples.length ? entry : null;
