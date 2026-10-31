@@ -33,6 +33,15 @@
           </select>
           <span class="level-hint">AI가 만드는 모든 예문이 이 수준에 맞춰져요</span>
         </div>
+        <div class="level-picker">
+          <label for="speech-rate">🔊 읽기 속도</label>
+          <select id="speech-rate" class="roleplay-select">
+            <option value="0.6">천천히</option>
+            <option value="0.85" selected>보통 (학습용)</option>
+            <option value="1">원어민 속도</option>
+          </select>
+          <span class="level-hint">🔊 버튼과 대화 듣기에 적용돼요 (이 기기만)</span>
+        </div>
         <button class="streak-badge" id="streak-badge" aria-expanded="false" aria-controls="streak-panel"><span id="streak-text">🔥 오늘 시작해 보세요</span></button>
         <div class="streak-panel" id="streak-panel" style="display:none;">
           <div class="streak-row"><span id="streak-main"></span></div>
@@ -697,7 +706,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=36"></script>
+  <script type="module" src="js/app.js?v=37"></script>
 
 
 

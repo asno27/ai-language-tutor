@@ -1,5 +1,5 @@
 ﻿import { transcribeFile, callGemini, lookupDictionary, fetchYoutubeTranscript, getGeminiApiKey } from './api.js';
-import { SpeechManager, speak } from './speech.js';
+import { SpeechManager, speak, getSpeechRate, setSpeechRate } from './speech.js';
 import { pickDailyScenes, ROLEPLAY_SCENARIOS, LEVELS, DEFAULT_LEVEL, EXAMPLE_TOPICS, GRAMMAR_TOPICS } from './prompts.js';
 import { compareWords } from './shadowing.js';
 import { logActivity, logMistake, getStats, setGoal, GOAL_CHOICES, GOAL_KEY, loadStudyDays, dayCount, dateKey, applyRemoteStudyDays, collectAllStudyDays, applyRemoteMistakes, collectAllMistakes, loadMistakes, deleteMistake, clearMistakes } from './activity.js';
@@ -1111,6 +1111,7 @@ $('#worksheet-dialogue-play').addEventListener('click', async () => {
     await new Promise(resolve => {
       const u = new SpeechSynthesisUtterance(line);
       u.lang = 'en-US';
+      u.rate = getSpeechRate();
       u.onend = u.onerror = resolve;
       window.speechSynthesis.speak(u);
     });
@@ -3542,6 +3543,15 @@ $('#backup-import-file').addEventListener('change', async (e) => {
   } catch (err) {
     backupStatus.textContent = `⚠️ ${err.message || '파일을 읽지 못했어요.'}`;
   }
+});
+
+// === 읽어주기 속도 (헤더) ===
+const speechRateSelect = $('#speech-rate');
+speechRateSelect.value = String(getSpeechRate());
+if (speechRateSelect.value !== String(getSpeechRate())) speechRateSelect.value = '0.85';
+speechRateSelect.addEventListener('change', () => {
+  setSpeechRate(Number(speechRateSelect.value));
+  speak('Hello, this is how fast I will read.');
 });
 
 // === 홈 화면에 설치 (PWA): 인터넷이 불안정해도 앱이 열리도록 서비스 워커 등록 (개발용 localhost는 제외) ===

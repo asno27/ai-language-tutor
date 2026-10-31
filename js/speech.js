@@ -82,12 +82,25 @@ export class SpeechManager {
  * @param {string} text - 읽을 텍스트
  * @param {string} lang - 언어 코드 ('en-US' 또는 'ko-KR')
  */
+const RATE_KEY = 'tts_rate';
+export const DEFAULT_RATE = 0.85; // 학습용으로 약간 느리게
+
+/** 사용자가 고른 읽기 속도 (이 기기에만 저장) */
+export function getSpeechRate() {
+  const n = Number(localStorage.getItem(RATE_KEY));
+  return n >= 0.5 && n <= 1.3 ? n : DEFAULT_RATE;
+}
+
+export function setSpeechRate(n) {
+  try { localStorage.setItem(RATE_KEY, String(n)); } catch {}
+}
+
 export function speak(text, lang = 'en-US') {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = lang;
-  utterance.rate = 0.85; // 학습용으로 약간 느리게
+  utterance.rate = getSpeechRate();
   utterance.pitch = 1;
   window.speechSynthesis.speak(utterance);
 }
