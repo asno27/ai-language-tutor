@@ -59,6 +59,12 @@ async function postLlm(url, systemPrompt, userMessage, options = {}) {
       err.fatal = true;
       throw err;
     }
+    // 429: 사용 한도 초과 — 서버가 알려 준 안내를 그대로 보여주고 다른 서버로 넘기지 않음
+    if (response.status === 429) {
+      const err = new Error(result.detail || '요청이 너무 많아요. 잠시 후 다시 시도해 주세요.');
+      err.fatal = true;
+      throw err;
+    }
     throw new Error(result.detail || `서버 오류: ${response.status}`);
   }
   return result.data;

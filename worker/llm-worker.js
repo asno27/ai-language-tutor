@@ -13,6 +13,7 @@
 //   GEMINI_MODEL, GROQ_MODEL, WORKERS_AI_MODEL, LLM_ORDER (Text, 선택 — 모델이 단종되면 여기서만 바꾸면 됨)
 
 import { handleSync } from './sync.js';
+import { checkRateLimit } from './ratelimit.js';
 
 const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
 const DEFAULT_WORKERS_AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -180,6 +181,12 @@ export default {
     // 브라우저에서 온 요청은 허용된 사이트만 받음 (주소가 노출돼 남이 API 한도를 쓰는 것을 줄이기 위함)
     if (origin && !isAllowedOrigin(origin, request)) {
       return json({ success: false, detail: 'Origin not allowed' }, 403, cors);
+    }
+
+    // IP별 요청 횟수 제한 (주소가 공개돼 있어 누구나 무료 AI 한도를 쓸 수 있는 것을 막음)
+    const limited = await checkRateLimit(env, request, path === '/api/sync' ? 'sync' : 'llm', !!origin);
+    if (limited) {
+      return json({ success: false, detail: limited.message }, 429, { ...cors, 'Retry-After': String(limited.retryAfter) });
     }
 
     if (path === '/api/sync') {
