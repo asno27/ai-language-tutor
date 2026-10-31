@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/style.css?v=14">
 </head>
 <body>
   <div id="app">
@@ -69,6 +69,10 @@
       <button class="tab-btn" data-tab="mistakes">
         <span class="tab-icon">📉</span>
         <span class="tab-label">내 실수</span>
+      </button>
+      <button class="tab-btn" data-tab="grammar">
+        <span class="tab-icon">📐</span>
+        <span class="tab-label">문법</span>
       </button>
       <button class="tab-btn" data-tab="vocabulary">
         <span class="tab-icon">📓</span>
@@ -306,6 +310,25 @@
             <div id="mk-list"></div>
             <div class="mk-list-actions"><button class="audio-btn" id="mk-clear">기록 모두 지우기</button></div>
           </details>
+        </div>
+      </section>
+
+      <!-- Grammar Pane -->
+      <section class="tab-pane" id="pane-grammar">
+        <div class="glass-card input-card">
+          <div class="card-header">
+            <h2>📐 문법 설명</h2>
+            <p class="card-desc">궁금한 문법을 고르면 쉬운 설명, 예문, 한국인이 자주 하는 실수, 확인 문제를 만들어 드려요</p>
+          </div>
+          <div class="roleplay-scenarios" id="grammar-topics"></div>
+          <input type="text" id="grammar-custom" class="text-input" style="display:none;" maxlength="80" placeholder="궁금한 문법을 입력하세요 (예: which와 that의 차이)">
+          <div class="input-actions">
+            <span class="level-chip" id="grammar-level"></span>
+            <button class="submit-btn" id="grammar-go"><span class="btn-text">설명 보기</span><span class="btn-icon">→</span></button>
+          </div>
+        </div>
+        <div class="glass-card output-card" id="grammar-output">
+          <div class="placeholder-message"><span class="placeholder-icon">📐</span><p>주제를 고르고 [설명 보기]를 눌러 주세요. 한 번 받은 설명은 이 기기에 저장돼요</p></div>
         </div>
       </section>
 
@@ -584,7 +607,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=18"></script>
+  <script type="module" src="js/app.js?v=22"></script>
 
 
 

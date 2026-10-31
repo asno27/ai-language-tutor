@@ -1650,3 +1650,18 @@ body::after {
 .mk-score { font-size: 1.3rem; font-weight: 800; color: var(--text-heading); margin: 0.6rem 0; }
 .mk-result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .mk-disclaimer { font-size: 0.78rem; color: rgba(255, 255, 255, 0.5); margin: 0 0 0.9rem; line-height: 1.5; }
+
+/* === 문법 설명 (Phase 5.3) === */
+.level-chip { font-size: 0.82rem; color: rgba(255, 255, 255, 0.6); }
+.gr-title { font-size: 1.3rem; font-weight: 800; color: var(--text-heading); margin-bottom: 0.4rem; }
+.gr-oneline { padding: 10px 14px; margin-bottom: 1rem; border-radius: 10px; background: rgba(102, 126, 234, 0.14); color: var(--text-heading); line-height: 1.6; }
+.gr-section { margin-bottom: 1.2rem; }
+.gr-section h4 { color: var(--text-heading); margin-bottom: 0.5rem; font-size: 1rem; }
+.gr-pattern { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 6px 0; border-top: 1px dashed rgba(255, 255, 255, 0.08); }
+.gr-pattern code { background: rgba(0, 0, 0, 0.3); padding: 3px 8px; border-radius: 6px; color: var(--warning-2); font-size: 0.92rem; }
+.gr-pattern span { color: var(--text-body); font-size: 0.9rem; line-height: 1.5; }
+.gr-example { padding: 6px 0; border-top: 1px dashed rgba(255, 255, 255, 0.08); line-height: 1.6; }
+.gr-en { color: var(--text-heading); font-size: 1.02rem; }
+.gr-actions { margin-top: 0.8rem; }
+.mk-cat-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.7rem; }
+.mk-cat-actions .mk-practice-btn { margin-top: 0; }

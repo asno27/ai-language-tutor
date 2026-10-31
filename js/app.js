@@ -1,6 +1,6 @@
 ﻿import { callGemini, lookupDictionary, fetchYoutubeTranscript, getGeminiApiKey } from './api.js';
 import { SpeechManager, speak } from './speech.js';
-import { pickDailyScenes, ROLEPLAY_SCENARIOS, LEVELS, DEFAULT_LEVEL, EXAMPLE_TOPICS } from './prompts.js';
+import { pickDailyScenes, ROLEPLAY_SCENARIOS, LEVELS, DEFAULT_LEVEL, EXAMPLE_TOPICS, GRAMMAR_TOPICS } from './prompts.js';
 import { compareWords } from './shadowing.js';
 import { logActivity, logMistake, getStats, setGoal, GOAL_CHOICES, GOAL_KEY, loadStudyDays, dayCount, dateKey, applyRemoteStudyDays, collectAllStudyDays, applyRemoteMistakes, collectAllMistakes, loadMistakes, deleteMistake, clearMistakes } from './activity.js';
 import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount, applyRemoteVocab, collectAllVocab } from './vocabulary.js';
@@ -2558,7 +2558,7 @@ function renderMistakeReport(report, all) {
       ${c.tipKo ? `<div class="mk-tip">💡 ${escapeHtml(c.tipKo)}</div>` : ''}
       ${shown.map(mkExampleHtml).join('')}
       ${rest > 0 ? `<div class="mk-sub">외 ${rest}개는 아래 기록에서 볼 수 있어요</div>` : ''}
-      <button class="audio-btn mk-practice-btn" data-cat="${c.index}">✏️ 이 유형 연습하기</button>
+      <div class="mk-cat-actions"><button class="audio-btn mk-practice-btn" data-cat="${c.index}">✏️ 이 유형 연습하기</button><button class="audio-btn mk-grammar-btn" data-cat="${c.index}">📐 문법 설명 보기</button></div>
     </div>`;
   });
   mkReportEl.innerHTML = html;
@@ -2621,13 +2621,38 @@ function shuffled(list) {
   return a;
 }
 
+/** AI가 만든 문제를 "정답 없이" 다시 풀게 해서, 정답이 하나로 일치하는 문제만 남김.
+ *  틀린 정답 키(예: 가정법 문제에 were)와 정답이 둘인 문제를 걸러냄. 검수 호출이 실패하면 그대로 두고 안내만 함 */
+async function verifyExercises(exercises) {
+  if (!exercises.length) return { kept: [], dropped: 0, checked: true };
+  try {
+    const result = await callGemini('quiz_check', { items: exercises.map(e => ({ sentence: e.sentence, options: e.options })) }, { temperature: 0 });
+    const byId = new Map((Array.isArray(result?.results) ? result.results : []).map(r => [Number(r.id), Array.isArray(r.correct) ? r.correct.map(c => String(c).trim().toLowerCase()) : null]));
+    if (![...byId.values()].some(Boolean)) throw new Error('empty check');
+    const kept = exercises.filter((e, i) => {
+      const ok = byId.get(i + 1);
+      return !ok || (ok.length === 1 && ok[0] === e.answer.toLowerCase());
+    });
+    return { kept, dropped: exercises.length - kept.length, checked: true };
+  } catch (err) {
+    console.warn('quiz check failed, keeping questions unverified:', err);
+    return { kept: exercises, dropped: 0, checked: false };
+  }
+}
+
 function validExercise(ex) {
   // 빈칸(____)은 문제당 정확히 1개여야 함 (여러 개면 보기가 어느 칸에 들어가는지 알 수 없음)
   if (!ex || typeof ex.sentence !== 'string' || (ex.sentence.match(/_{2,}/g) || []).length !== 1 || !Array.isArray(ex.options)) return null;
   const options = [...new Set(ex.options.map(o => String(o).trim()).filter(Boolean))];
   const answer = String(ex.answer ?? '').trim();
   if (options.length < 2 || options.length > 5 || !options.includes(answer)) return null;
-  return { sentence: ex.sentence.trim(), options: shuffled(options), answer, explanationKo: String(ex.explanationKo || '') };
+  // 틀린 보기마다 "왜 틀렸는지"(AI가 직접 설명하게 해서 애매한 보기를 줄임). 있으면 오답을 골랐을 때 보여줌
+  const wrongReasons = {};
+  (Array.isArray(ex.wrongOptions) ? ex.wrongOptions : []).forEach(w => {
+    const opt = String(w?.option ?? '').trim();
+    if (opt && opt !== answer && options.includes(opt) && w.whyWrongKo) wrongReasons[opt] = String(w.whyWrongKo);
+  });
+  return { sentence: ex.sentence.trim(), options: shuffled(options), answer, explanationKo: String(ex.explanationKo || ''), wrongReasons };
 }
 
 async function startMistakePractice(catIndex) {
@@ -2643,9 +2668,11 @@ async function startMistakePractice(catIndex) {
   try {
     const result = await callGemini('mistake_practice', { name: cat.name, explanation: cat.explanationKo, examples, level: getUserLevel() }, { temperature: 0.4 });
     if (token !== mkPracticeToken) return;
-    const exercises = (result?.exercises || []).map(validExercise).filter(Boolean).slice(0, 5);
+    const checked = await verifyExercises((result?.exercises || []).map(validExercise).filter(Boolean));
+    if (token !== mkPracticeToken) return;
+    const exercises = checked.kept.slice(0, 5);
     if (exercises.length < 3) throw new Error('연습 문제를 충분히 만들지 못했어요. 다시 시도해 주세요.');
-    renderMistakePractice(cat, catIndex, exercises);
+    renderMistakePractice(cat, catIndex, exercises, checked);
   } catch (e) {
     if (token !== mkPracticeToken) return;
     showError(mkPracticeEl, e.message);
@@ -2654,10 +2681,10 @@ async function startMistakePractice(catIndex) {
   }
 }
 
-function renderMistakePractice(cat, catIndex, exercises) {
+// 객관식 퀴즈 공통 화면 (내 실수 연습 · 문법 확인 문제에서 같이 사용)
+// exercises: validExercise()를 통과한 문제들, onFinish({ correct, total }): 모두 풀었을 때
+function mountQuiz(box, exercises, onFinish) {
   let answered = 0, correct = 0;
-  mkPracticeEl.innerHTML = `<div class="mk-report-head">✏️ ${escapeHtml(cat.name)} 연습 <span class="mk-sub">${exercises.length}문제</span></div><div class="mk-disclaimer">AI가 만든 문제라 가끔 정답이 애매할 수 있어요. 그럴 땐 건너뛰어도 괜찮아요.</div><div id="mk-questions"></div><div id="mk-result"></div>`;
-  const box = document.getElementById('mk-questions');
   exercises.forEach((ex, i) => {
     const q = document.createElement('div');
     q.className = 'mk-q';
@@ -2675,24 +2702,39 @@ function renderMistakePractice(cat, catIndex, exercises) {
       });
       const explain = q.querySelector('.mk-explain');
       explain.style.display = 'block';
-      explain.innerHTML = `${ok ? '✅ 정답!' : `❌ 정답은 <b>${escapeHtml(ex.answer)}</b>`}${ex.explanationKo ? `<br>${escapeHtml(ex.explanationKo)}` : ''}`;
+      const why = !ok && ex.wrongReasons?.[btn.dataset.o];
+      explain.innerHTML = `${ok ? '✅ 정답!' : `❌ 정답은 <b>${escapeHtml(ex.answer)}</b>`}${why ? `<br><b>${escapeHtml(btn.dataset.o)}</b>는 왜 아닐까요? ${escapeHtml(why)}` : ''}${ex.explanationKo ? `<br>${escapeHtml(ex.explanationKo)}` : ''}`;
       answered++; if (ok) correct++;
-      if (answered === exercises.length) {
-        logActivity('mistake_practice');
-        document.getElementById('mk-result').innerHTML = `<div class="mk-score">🎯 ${correct}/${exercises.length} 정답</div>
-          <div class="mk-result-actions"><button class="submit-btn" id="mk-again"><span class="btn-text">🔄 새 문제 받기</span></button><button class="audio-btn" id="mk-close">닫기</button></div>`;
-        document.getElementById('mk-again').addEventListener('click', () => startMistakePractice(catIndex));
-        document.getElementById('mk-close').addEventListener('click', () => { mkPracticeEl.style.display = 'none'; mkPracticeEl.innerHTML = ''; });
-      }
+      if (answered === exercises.length) onFinish({ correct, total: exercises.length });
     }));
     box.appendChild(q);
   });
   makeTextClickable(box);
 }
 
+function quizNote(checked) {
+  if (!checked?.checked) return 'AI가 만든 문제라 가끔 정답이 애매할 수 있어요. (이번에는 자동 검수를 하지 못했어요)';
+  return checked.dropped
+    ? `AI가 만든 문제를 한 번 더 검수해서, 정답이 애매한 ${checked.dropped}문제는 뺐어요. 그래도 가끔 이상할 수 있어요.`
+    : 'AI가 만든 문제를 한 번 더 검수했어요. 그래도 가끔 이상할 수 있어요.';
+}
+
+function renderMistakePractice(cat, catIndex, exercises, checked) {
+  mkPracticeEl.innerHTML = `<div class="mk-report-head">✏️ ${escapeHtml(cat.name)} 연습 <span class="mk-sub">${exercises.length}문제</span></div><div class="mk-disclaimer">${escapeHtml(quizNote(checked))}</div><div id="mk-questions"></div><div id="mk-result"></div>`;
+  mountQuiz(document.getElementById('mk-questions'), exercises, ({ correct, total }) => {
+    logActivity('mistake_practice');
+    document.getElementById('mk-result').innerHTML = `<div class="mk-score">🎯 ${correct}/${total} 정답</div>
+      <div class="mk-result-actions"><button class="submit-btn" id="mk-again"><span class="btn-text">🔄 새 문제 받기</span></button><button class="audio-btn" id="mk-close">닫기</button></div>`;
+    document.getElementById('mk-again').addEventListener('click', () => startMistakePractice(catIndex));
+    document.getElementById('mk-close').addEventListener('click', () => { mkPracticeEl.style.display = 'none'; mkPracticeEl.innerHTML = ''; });
+  });
+}
+
 mkReportEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.mk-practice-btn');
   if (btn) startMistakePractice(Number(btn.dataset.cat));
+  const gbtn = e.target.closest('.mk-grammar-btn');
+  if (gbtn) openGrammarFromMistakes(Number(gbtn.dataset.cat));
 });
 
 // --- 기록 삭제
@@ -2711,3 +2753,157 @@ $('#mk-clear').addEventListener('click', () => {
 document.querySelector('.tab-btn[data-tab="mistakes"]').addEventListener('click', renderMistakeTab);
 window.addEventListener('mistakes-changed', () => { if ($('#pane-mistakes').classList.contains('active')) renderMistakeTab(); });
 renderMistakeTab();
+
+
+// === 📐 문법 설명 (Phase 5.3) ===
+// 주제 → AI가 쉬운 설명·형태·예문·흔한 실수·확인 문제를 만들어 줌. 레벨별로 이 기기에 저장(최대 20개).
+const GRAMMAR_CACHE_PREFIX = 'grammar_';
+const GRAMMAR_INDEX_KEY = 'grammar_index';
+const GRAMMAR_CACHE_MAX = 20;
+const grammarTopicsEl = $('#grammar-topics');
+const grammarCustom = $('#grammar-custom');
+const grammarGo = $('#grammar-go');
+const grammarOutput = $('#grammar-output');
+const grammarLevelEl = $('#grammar-level');
+let grammarTopicId = GRAMMAR_TOPICS[0].id;
+let grammarBusy = false;
+let grammarToken = 0;
+
+grammarTopicsEl.innerHTML = GRAMMAR_TOPICS.map(t =>
+  `<button class="roleplay-chip${t.id === grammarTopicId ? ' active' : ''}" data-id="${t.id}">${escapeHtml(t.label)}</button>`).join('');
+
+function selectGrammarTopic(id) {
+  if (!GRAMMAR_TOPICS.some(t => t.id === id)) return;
+  grammarTopicId = id;
+  grammarTopicsEl.querySelectorAll('.roleplay-chip').forEach(c => c.classList.toggle('active', c.dataset.id === id));
+  grammarCustom.style.display = id === 'custom' ? 'block' : 'none';
+  if (id === 'custom') grammarCustom.focus();
+}
+grammarTopicsEl.addEventListener('click', (e) => {
+  const chip = e.target.closest('.roleplay-chip');
+  if (chip) selectGrammarTopic(chip.dataset.id);
+});
+
+function renderGrammarLevel() {
+  grammarLevelEl.textContent = `📶 ${LEVELS[getUserLevel()].label} 기준으로 설명해요 (맨 위에서 바꿀 수 있어요)`;
+}
+renderGrammarLevel();
+onLevelChange(renderGrammarLevel);
+
+function grammarHash(text) {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+function grammarCacheKey(topic, customText, level) {
+  return `${GRAMMAR_CACHE_PREFIX}${topic.id === 'custom' ? 'c' + grammarHash(customText.toLowerCase()) : topic.id}_${level}`;
+}
+function loadGrammarCache(key) {
+  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+}
+function saveGrammarCache(key, entry) {
+  try {
+    localStorage.setItem(key, JSON.stringify(entry));
+    let index = [];
+    try { index = JSON.parse(localStorage.getItem(GRAMMAR_INDEX_KEY)) || []; } catch {}
+    index = [key, ...index.filter(k => k !== key)];
+    while (index.length > GRAMMAR_CACHE_MAX) localStorage.removeItem(index.pop());
+    localStorage.setItem(GRAMMAR_INDEX_KEY, JSON.stringify(index));
+  } catch (e) { console.warn('grammar cache save failed:', e); }
+}
+
+function validGrammar(r) {
+  if (!r || typeof r.title !== 'string' || !r.title.trim()) return null;
+  const list = (v) => Array.isArray(v) ? v : [];
+  const paragraphs = (Array.isArray(r.explanationKo) ? r.explanationKo : [r.explanationKo]).map(p => String(p || '').trim()).filter(Boolean);
+  const entry = {
+    title: r.title.trim().slice(0, 80),
+    oneLineKo: String(r.oneLineKo || '').trim(),
+    explanationKo: paragraphs.slice(0, 4),
+    patterns: list(r.patterns).filter(p => p?.form).slice(0, 4).map(p => ({ form: String(p.form), useKo: String(p.useKo || '') })),
+    examples: list(r.examples).filter(x => x?.en).slice(0, 5).map(x => ({ en: String(x.en), ko: String(x.ko || '') })),
+    commonMistakes: list(r.commonMistakes).filter(m => m?.wrong && m?.right).slice(0, 3).map(m => ({ wrong: String(m.wrong), right: String(m.right), noteKo: String(m.noteKo || '') })),
+    quiz: list(r.quiz).map(validExercise).filter(Boolean).slice(0, 5), // 검수 후 3개로 줄임
+  };
+  // 설명이나 예문 중 하나는 있어야 보여줄 가치가 있음
+  return entry.explanationKo.length || entry.examples.length ? entry : null;
+}
+
+function renderGrammar(entry, { cacheKey, topicArgs }) {
+  const html = [`<div class="gr-title">${escapeHtml(entry.title)}</div>`];
+  if (entry.oneLineKo) html.push(`<div class="gr-oneline">💡 ${escapeHtml(entry.oneLineKo)}</div>`);
+  if (entry.explanationKo.length) html.push(`<div class="gr-section"><h4>📖 쉽게 이해하기</h4>${entry.explanationKo.map(p => `<p class="mk-text">${escapeHtml(p)}</p>`).join('')}</div>`);
+  if (entry.patterns.length) html.push(`<div class="gr-section"><h4>🧩 형태와 쓰임</h4>${entry.patterns.map(p => `<div class="gr-pattern"><code>${escapeHtml(p.form)}</code><span>${escapeHtml(p.useKo)}</span></div>`).join('')}</div>`);
+  if (entry.examples.length) html.push(`<div class="gr-section"><h4>💬 예문</h4>${entry.examples.map(x => `<div class="gr-example"><div><span class="gr-en">${escapeHtml(x.en)}</span> <button class="rp-tool" data-speak="${escapeAttr(x.en)}" aria-label="듣기">🔊</button></div><div class="mk-sub">${escapeHtml(x.ko)}</div></div>`).join('')}</div>`);
+  if (entry.commonMistakes.length) html.push(`<div class="gr-section"><h4>⚠️ 한국인이 자주 하는 실수</h4>${entry.commonMistakes.map(m => `<div class="mk-ex"><div><span class="mk-wrong">${escapeHtml(m.wrong)}</span></div><div><span class="mk-arrow">→</span> <span class="mk-right">${escapeHtml(m.right)}</span></div>${m.noteKo ? `<div class="mk-comment">${escapeHtml(m.noteKo)}</div>` : ''}</div>`).join('')}</div>`);
+  if (entry.quiz.length) html.push(`<div class="gr-section"><h4>✏️ 확인 문제 <span class="mk-sub">${entry.quiz.length}문제</span></h4>${entry.quizNote ? `<div class="mk-disclaimer">${escapeHtml(entry.quizNote)}</div>` : ''}<div id="gr-quiz"></div><div id="gr-quiz-result"></div></div>`);
+  html.push(`<div class="gr-actions"><button class="audio-btn" id="gr-regenerate">🔄 다시 설명 받기</button></div>`);
+  html.push('<div class="mk-disclaimer">AI가 만든 설명이라 가끔 부정확하거나 문제가 애매할 수 있어요. 이상하면 영작 교정 탭이나 뉘앙스 질문으로 한 번 더 확인해 보세요.</div>');
+  grammarOutput.innerHTML = html.join('');
+  makeTextClickable(grammarOutput); // 설명·예문의 영어 단어를 눌러 뜻을 볼 수 있게 (퀴즈는 아래에서 따로 처리)
+  if (entry.quiz.length) {
+    mountQuiz(document.getElementById('gr-quiz'), entry.quiz, ({ correct, total }) => {
+      logActivity('grammar_quiz');
+      document.getElementById('gr-quiz-result').innerHTML = `<div class="mk-score">🎯 ${correct}/${total} 정답</div>`;
+    });
+  }
+  document.getElementById('gr-regenerate').addEventListener('click', () => showGrammar({ ...topicArgs, force: true }));
+}
+
+/** topicArgs: { mistakes?: 내 실수 예시, force?: 저장된 설명 무시 } */
+async function showGrammar(topicArgs = {}) {
+  if (grammarBusy) return;
+  const topic = GRAMMAR_TOPICS.find(t => t.id === grammarTopicId);
+  const customText = grammarCustom.value.trim();
+  if (topic.id === 'custom' && !customText) {
+    grammarCustom.focus();
+    grammarCustom.placeholder = '⚠️ 궁금한 문법을 먼저 입력해 주세요 (예: which와 that의 차이)';
+    return;
+  }
+  const level = getUserLevel();
+  const cacheKey = grammarCacheKey(topic, customText, level);
+  const personalized = !!topicArgs.mistakes?.length; // 내 실수를 반영한 설명은 저장된 것과 다르므로 캐시를 쓰지 않음
+  if (!topicArgs.force && !personalized) {
+    const cached = loadGrammarCache(cacheKey);
+    if (cached?.entry) { renderGrammar(cached.entry, { cacheKey, topicArgs: {} }); return; }
+  }
+  grammarBusy = true;
+  grammarGo.disabled = true;
+  const token = ++grammarToken;
+  grammarOutput.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">⏳</span><p>"${escapeHtml(topic.id === 'custom' ? customText : topic.label.replace(/^\S+\s/, ''))}" 설명을 만들고 있어요...</p></div>`;
+  try {
+    const result = await callGemini('grammar', { topic: topic.id === 'custom' ? customText : topic.topic, level, mistakes: topicArgs.mistakes }, { temperature: 0.4 });
+    if (token !== grammarToken) return;
+    const entry = validGrammar(result);
+    if (!entry) throw new Error('설명을 받지 못했어요. 다시 시도해 주세요.');
+    const checked = await verifyExercises(entry.quiz);
+    if (token !== grammarToken) return;
+    entry.quiz = checked.kept.slice(0, 3);
+    entry.quizNote = quizNote(checked);
+    logActivity('grammar');
+    if (!personalized) saveGrammarCache(cacheKey, { at: new Date().toISOString(), entry });
+    renderGrammar(entry, { cacheKey, topicArgs: personalized ? { mistakes: topicArgs.mistakes } : {} });
+  } catch (e) {
+    if (token !== grammarToken) return;
+    showError(grammarOutput, e.message);
+  } finally {
+    if (token === grammarToken) { grammarBusy = false; grammarGo.disabled = false; }
+  }
+}
+grammarGo.addEventListener('click', () => showGrammar());
+grammarCustom.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) showGrammar(); });
+
+// 내 실수 → 문법 설명 (유형 이름으로 알맞은 주제를 찾고, 없으면 직접 입력 주제로)
+function openGrammarFromMistakes(catIndex) {
+  const report = loadMistakeReport();
+  const cat = report?.categories[catIndex];
+  if (!cat) return;
+  const byId = new Map(loadMistakes().map(m => [m.id, m]));
+  const examples = cat.ids.map(id => byId.get(id)).filter(Boolean).slice(-3);
+  const found = GRAMMAR_TOPICS.find(t => t.keys && (t.keys.test(cat.name) || t.keys.test(cat.key || '')));
+  document.querySelector('.tab-btn[data-tab="grammar"]').click();
+  if (found) selectGrammarTopic(found.id);
+  else { selectGrammarTopic('custom'); grammarCustom.value = `${cat.name} 문법`; }
+  grammarBusy = false; grammarGo.disabled = false; // 이전 요청이 끝나지 않았어도 새 요청을 시작
+  showGrammar({ mistakes: examples });
+}

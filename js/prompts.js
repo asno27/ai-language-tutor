@@ -49,6 +49,34 @@ Rules:
 3. keyVocabulary: 1-3 items per sentence, copied exactly as they appear in the sentence. Skip very basic words.
 4. NEVER repeat or closely paraphrase any sentence in the "previously shown" list.
 5. No other text outside JSON.`;
+    case 'quiz_check':
+      return `You are a meticulous English grammar checker. You receive numbered fill-in-the-blank questions with their options but WITHOUT any answer key.
+For each question, decide which of the options are grammatically correct AND natural for a careful native speaker in that exact sentence.
+Respond ONLY with valid JSON: { "results": [ { "id": 1, "correct": ["option copied exactly"] } ] }
+Rules:
+1. List ALL acceptable options. If two options would both be acceptable, list both. If none is acceptable, return an empty list.
+2. Think about the whole sentence, including words after the blank and any time expressions or clues; do not guess.
+3. Use only the exact option strings given. Return one result per question id.
+4. No other text outside JSON.`;
+    case 'grammar':
+      return `You are a friendly English grammar teacher for Korean learners. Explain ONE grammar topic simply, with Korean explanations and English examples.
+Respond ONLY with valid JSON:
+{
+  "title": "Korean title with the English term in parentheses, for example 현재완료 (Present Perfect)",
+  "oneLineKo": "a one-sentence summary in Korean (존댓말)",
+  "explanationKo": ["2-3 short paragraphs in Korean (존댓말) that explain the idea in plain words, comparing with Korean grammar where it helps"],
+  "patterns": [ { "form": "the pattern, for example have/has + past participle", "useKo": "when to use it, in Korean" } ],
+  "examples": [ { "en": "a natural everyday sentence", "ko": "Korean translation" } ],
+  "commonMistakes": [ { "wrong": "a sentence that really is wrong", "right": "the corrected sentence", "noteKo": "why, in Korean" } ],
+  "quiz": [ { "sentence": "an English sentence with exactly one ____ blank", "options": ["...", "...", "..."], "answer": "copied exactly from options", "explanationKo": "short Korean explanation", "wrongOptions": [ { "option": "a wrong option copied from options", "whyWrongKo": "why it is wrong in this exact sentence, in Korean" } ] } ]
+}
+Rules:
+1. Match the learner level in the user message: for beginners use very simple words, short sentences and only the core pattern; for advanced learners add nuance and exceptions.
+2. Give 2-3 patterns, exactly 4 examples, exactly 2 common mistakes typical for Korean speakers, and exactly 4 quiz questions. Vary the quiz: the correct answer must not be the same word in every question, and the questions should test different uses of the topic.
+3. Each quiz question has EXACTLY ONE blank written as ____ in the whole text, and 3 or 4 options with exactly one correct. The sentence alone must make the answer certain (add a clue as ordinary words, such as a time word).
+   In "wrongOptions" explain why EVERY wrong option is wrong in that exact sentence. If you cannot convincingly explain why an option is wrong because it could also be natural or correct, replace that option or rewrite the sentence. Never offer two options that are both acceptable.
+4. If the user message lists the learner's own mistakes, address those patterns in the explanation and common mistakes.
+5. No other text outside JSON.`;
     case 'mistake_report':
       return `You are an English teacher analyzing a Korean learner's recurring mistakes.
 You receive numbered items. Each is something the learner wrote or said, followed by its corrected version and sometimes a teacher comment.
@@ -76,13 +104,13 @@ Rules:
     case 'mistake_practice':
       return `You create multiple-choice practice questions for a Korean learner of English.
 Respond ONLY with valid JSON:
-{ "exercises": [ { "sentence": "an English sentence with exactly one ____ blank", "options": ["...", "...", "..."], "answer": "the correct option, copied exactly from options", "explanationKo": "short Korean explanation (존댓말) of why the answer is right and why the common wrong choice is wrong" } ] }
+{ "exercises": [ { "sentence": "an English sentence with exactly one ____ blank", "options": ["...", "...", "..."], "answer": "the correct option, copied exactly from options", "explanationKo": "short Korean explanation (존댓말) of why the answer is right", "wrongOptions": [ { "option": "a wrong option copied from options", "whyWrongKo": "why it is wrong in this exact sentence, in Korean" } ] } ] }
 Rules:
-1. Write exactly 5 questions that all practice the given error type.
+1. Write exactly 6 questions that all practice the given error type, with different correct answers and different situations.
 2. Each question has 3 or 4 options and exactly one option is correct in context. The wrong options must be the mistakes learners really make.
 3. Do not copy the learner's own sentences; write new everyday sentences.
 4. Each question has EXACTLY ONE blank written as ____ in the whole text. The sentence alone must make the answer certain: add a clue as ordinary words with no blank, for example "I bought a bag yesterday. ____ bag was cheap." (answer: The) or "Yesterday, she ____ home early." (answer: went). Never put a second blank in a clue sentence.
-5. Before finalizing each question, test every wrong option: it must be clearly wrong for a native speaker in that exact sentence. If another option could also sound natural, rewrite the question.
+5. In "wrongOptions" explain why EVERY wrong option is wrong in that exact sentence. If you cannot convincingly explain why an option is wrong because it could also sound natural or correct, replace that option or rewrite the question. Never offer two options that are both acceptable.
 6. For article questions: avoid uncountable or abstract nouns (advice, information, news) unless "—" (meaning no article) is one of the options, and never write a blank where both "a/an" and "the" would be natural.
 7. Match the learner level given in the user message.
 8. No other text outside JSON.`;
@@ -173,6 +201,18 @@ export function getUserPrompt(mode, data) {
       let prompt = `Topic: ${data.topic}\nLearner level: ${getLevelRule(data.level)}`;
       if (data.avoid?.length) prompt += `\nPreviously shown (do NOT repeat or closely paraphrase):\n${data.avoid.map(s => `- ${s}`).join('\n')}`;
       return prompt + '\nWrite 5 example sentences in JSON as instructed.';
+    }
+    case 'quiz_check': {
+      const lines = (data.items || []).map((q, i) => `${i + 1}. ${String(q.sentence).replace(/\s+/g, ' ')} | options: ${q.options.join(' / ')}`).join('\n');
+      return `Questions:\n${lines}\nCheck them in JSON as instructed.`;
+    }
+    case 'grammar': {
+      let prompt = `Grammar topic: ${data.topic}\nLearner level: ${getLevelRule(data.level)}`;
+      if (data.mistakes?.length) {
+        const clean = (t) => String(t ?? '').replace(/\s+/g, ' ').trim();
+        prompt += `\nThe learner's own mistakes on this topic:\n${data.mistakes.map(m => `- "${clean(m.original)}" -> "${clean(m.corrected)}"`).join('\n')}`;
+      }
+      return prompt + '\nExplain it in JSON as instructed.';
     }
     case 'mistake_report': {
       const clean = (t) => String(t ?? '').replace(/\s+/g, ' ').trim();
@@ -285,4 +325,21 @@ export const EXAMPLE_TOPICS = [
   { id: 'feelings', label: '🏠 일상·감정', topic: 'everyday life and expressing feelings, opinions and reactions with friends and family' },
   { id: 'interests', label: '🎯 내 관심사', topic: '' },
   { id: 'custom', label: '✏️ 직접 입력', topic: '' },
+];
+
+
+// 문법 설명 탭 (Phase 5.3): 주제 목록. topic은 AI에게 보내는 영어 설명
+export const GRAMMAR_TOPICS = [
+  { id: 'perfect', label: '🕐 현재완료 vs 과거', topic: 'present perfect versus simple past', keys: /현재완료|과거/ },
+  { id: 'tenses', label: '⏳ 시제 일치', topic: 'keeping verb tenses consistent and choosing the right tense with time expressions', keys: /시제|tense/i },
+  { id: 'articles', label: '🔤 관사 a/an/the', topic: 'articles a, an, the and when to use no article', keys: /관사|article/i },
+  { id: 'prepositions', label: '📍 전치사 in/on/at', topic: 'common prepositions of time and place (in, on, at) and fixed adjective + preposition pairs', keys: /전치사|preposition/i },
+  { id: 'agreement', label: '🤝 주어-동사 일치', topic: 'subject-verb agreement including third person singular -s', keys: /주어.?동사|수 ?일치|일치|agreement/i },
+  { id: 'countable', label: '🔢 셀 수 있는/없는 명사', topic: 'countable and uncountable nouns, plurals, and quantity words like much, many, a lot of', keys: /복수|셀 ?수|가산|countable/i },
+  { id: 'conditionals', label: '🔀 조건문 if', topic: 'conditional sentences with if (zero, first, second and third conditional)', keys: /조건|가정|conditional/i },
+  { id: 'relative', label: '🔗 관계대명사', topic: 'relative pronouns who, which, that and relative clauses', keys: /관계|relative/i },
+  { id: 'passive', label: '↔️ 수동태', topic: 'passive voice: form, use, and when to prefer it', keys: /수동|passive/i },
+  { id: 'modals', label: '🙋 조동사 can/should/must', topic: 'modal verbs can, could, should, must, may and polite requests', keys: /조동사|modal|공손|정중/i },
+  { id: 'comparatives', label: '📏 비교급·최상급', topic: 'comparatives and superlatives', keys: /비교|최상|comparative/i },
+  { id: 'custom', label: '✏️ 직접 입력', topic: '', keys: null },
 ];

@@ -81,6 +81,8 @@
 | 영작 교정 / 번역 / 사전 | `app.js` 상단, prompts `writing`/`translation`/`dictionary` | 모든 결과 단어 클릭 → 미니 사전 |
 | 발음 | `app.js` + `js/shadowing.js` | 단어별 채점(API 없음) + [AI 발음 팁] |
 | 🎭 역할극 | `app.js` "ROLE-PLAY", prompts `roleplay`, `ROLEPLAY_SCENARIOS` | 교정·점수·대답 예시·음성 입력 |
+| 📉 내 실수 | `app.js` "내 실수 분석", `js/activity.js`, prompts `mistake_report`/`mistake_practice` | 쌓인 틀린 표현을 유형별로 분석, 유형별 연습 |
+| 📐 문법 | `app.js` "문법 설명", prompts `grammar`/`GRAMMAR_TOPICS`/`quiz_check` | 레벨별 설명, 확인 문제는 `verifyExercises`로 검수 |
 | 단어장 | `js/vocabulary.js` (SM-2 복습) | 하단에 🔄 동기화 카드 |
 | 오늘의 영어 추천 | prompts `daily`, `pickDailyScenes()` | 반복 방지 + 📅 달력 아카이브(`daily_archive`) |
 | 인터랙티브 학습지 | `data/worksheet.json` + "PDF WORKSHEET" | 📄 PDF 업로드 → 요약·핵심 단어·빈칸·쉐도잉 (pdf.js 6.3.289, cdnjs) |
