@@ -49,6 +49,15 @@ Rules:
 3. keyVocabulary: 1-3 items per sentence, copied exactly as they appear in the sentence. Skip very basic words.
 4. NEVER repeat or closely paraphrase any sentence in the "previously shown" list.
 5. No other text outside JSON.`;
+    case 'translate_batch':
+      return `You translate English video subtitle lines into natural, conversational Korean for a Korean learner.
+Respond ONLY with valid JSON: { "translations": [ { "id": 1, "ko": "..." } ] }
+Rules:
+1. Return exactly one entry per input line, using the same id. Never merge, split, skip, or reorder lines.
+2. "ko" is only the Korean translation of that line (no notes, no romanization, no English).
+3. Keep proper nouns, brand names, and titles in their original form when that reads naturally.
+4. If a line stops mid-sentence because the sentence continues in the next line, translate it as far as it goes so it still reads naturally.
+5. No other text outside JSON.`;
     case 'pdf_worksheet':
       return `You turn an English reading passage into study material for Korean learners.
 Respond ONLY with valid JSON:
@@ -128,6 +137,8 @@ export function getUserPrompt(mode, data) {
       if (data.avoid?.length) prompt += `\nPreviously shown (do NOT repeat or closely paraphrase):\n${data.avoid.map(s => `- ${s}`).join('\n')}`;
       return prompt + '\nWrite 5 example sentences in JSON as instructed.';
     }
+    case 'translate_batch':
+      return `Translate these subtitle lines and return JSON as instructed:\n${(data.items || []).map((t, i) => `${i + 1}. ${String(t).replace(/\s+/g, ' ')}`).join('\n')}`;
     case 'pdf_worksheet':
       return `Passage:\n\"\"\"\n${data.text}\n\"\"\"\nCreate the study material in JSON as instructed.`;
     case 'roleplay': {

@@ -1551,3 +1551,10 @@ body::after {
 .res-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .res-link { text-decoration: none; display: inline-block; }
 .res-note { font-size: 0.78rem; color: rgba(255, 255, 255, 0.5); }
+
+/* === YouTube paste mode === */
+.yt-steps { margin: 0 0 1rem 1.2rem; color: var(--text-body); line-height: 1.8; font-size: 0.92rem; }
+.yt-steps b { color: var(--text-heading); }
+#yt-paste-url { margin-bottom: 0.6rem; }
+.yt-note { margin-top: 0.8rem; font-size: 0.85rem; color: rgba(255, 255, 255, 0.6); }
+.yt-note code { background: rgba(0, 0, 0, 0.3); padding: 1px 6px; border-radius: 4px; }

@@ -1021,80 +1021,206 @@ if (worksheetSelect) {
 }
 
 // === YOUTUBE TRANSLATION ===
+// 두 가지 방식: ① 자막 붙여넣기(PC 불필요, Worker만 사용) ② 링크로 자동 가져오기(PC 서버 필요)
+// 번역은 공통 처리(runYoutubeTranslation)를 쓰고, 자막 여러 줄을 한 번에 번역해 호출 수를 줄임.
+const YT_BATCH_SIZE = 6;
+const YT_BATCH_GAP_MS = 500;
+const YT_PASTE_MAX_SEGMENTS = 300;
+const YT_SEGMENT_TARGET_CHARS = 140;   // 짧은 줄은 이 길이까지 묶어서 한 구간으로
+const YT_SEGMENT_MAX_CHARS = 320;      // 이보다 긴 덩어리는 문장 단위로 나눔
+const YT_MODE_KEY = 'yt_mode';
 
+const ytModes = $('#yt-modes');
+const ytPasteMode = $('#yt-paste-mode');
+const ytLinkMode = $('#yt-link-mode');
+const ytPasteText = $('#yt-paste-text');
+const ytPasteUrl = $('#yt-paste-url');
+const ytPasteCount = $('#yt-paste-count');
+const ytPasteSubmit = $('#yt-paste-submit');
+let youtubeBusy = false;
+
+function setYoutubeMode(mode) {
+  const m = mode === 'link' ? 'link' : 'paste';
+  ytPasteMode.style.display = m === 'paste' ? 'block' : 'none';
+  ytLinkMode.style.display = m === 'link' ? 'block' : 'none';
+  ytModes.querySelectorAll('.roleplay-chip').forEach(c => c.classList.toggle('active', c.dataset.ytmode === m));
+  try { localStorage.setItem(YT_MODE_KEY, m); } catch {}
+}
+ytModes.addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-ytmode]');
+  if (chip) setYoutubeMode(chip.dataset.ytmode);
+});
+setYoutubeMode((() => { try { return localStorage.getItem(YT_MODE_KEY) || 'paste'; } catch { return 'paste'; } })());
+
+// --- 붙여넣은 자막을 구간(segments)으로 나누기
+const YT_TS_ONLY = /^(?:\d{1,2}:)?\d{1,2}:\d{2}$/;
+const YT_TS_LEAD = /^((?:\d{1,2}:)?\d{1,2}:\d{2})\s+(.+)$/;
+
+function splitLongText(text) {
+  if (text.length <= YT_SEGMENT_MAX_CHARS) return [text];
+  const sentences = text.split(/(?<=[.!?…])\s+/);
+  const out = [];
+  let buf = '';
+  for (const sentence of sentences) {
+    if (buf && (buf + ' ' + sentence).length > YT_SEGMENT_MAX_CHARS) { out.push(buf); buf = sentence; }
+    else buf = buf ? buf + ' ' + sentence : sentence;
+  }
+  if (buf) out.push(buf);
+  // 문장 부호가 하나도 없는 아주 긴 글: 글자 수로 자름
+  return out.flatMap(t => t.length > YT_SEGMENT_MAX_CHARS * 1.5 ? t.match(new RegExp(`.{1,${YT_SEGMENT_MAX_CHARS}}`, 'g')) : [t]);
+}
+
+function parseTranscriptText(raw) {
+  const lines = String(raw).replace(/\r/g, '').split('\n').map(l => l.trim()).filter(Boolean);
+  const entries = [];
+  let cur = null;
+  for (const line of lines) {
+    let m;
+    if (YT_TS_ONLY.test(line)) { cur = { time: line, text: '' }; entries.push(cur); }
+    else if ((m = line.match(YT_TS_LEAD))) { cur = { time: m[1], text: m[2] }; entries.push(cur); }
+    else if (cur) cur.text += (cur.text ? ' ' : '') + line;
+    else { cur = { time: '', text: line }; entries.push(cur); }
+  }
+  // [Music], [Applause] 같은 소리 표시와 빈 항목 제거
+  const items = entries
+    .map(e => ({ time: e.time, text: e.text.replace(/\[[^\]]{1,30}\]/g, ' ').replace(/\s+/g, ' ').trim() }))
+    .filter(e => e.text);
+
+  // 짧은 줄은 묶고(호출 수 절감), 너무 긴 덩어리는 문장 단위로 나눔
+  const segments = [];
+  let buf = null;
+  for (const item of items) {
+    if (buf && buf.text.length < YT_SEGMENT_TARGET_CHARS) buf.text += ' ' + item.text;
+    else { buf = { time: item.time, text: item.text }; segments.push(buf); }
+  }
+  const result = segments.flatMap(seg => splitLongText(seg.text).map((text, i) => ({ time: i === 0 ? seg.time : '', text })));
+  const truncated = result.length > YT_PASTE_MAX_SEGMENTS;
+  return { segments: result.slice(0, YT_PASTE_MAX_SEGMENTS), truncated, total: result.length };
+}
+
+function mostlyKorean(text) {
+  const letters = text.match(/[A-Za-z가-힣]/g) || [];
+  if (letters.length < 20) return false;
+  return (text.match(/[가-힣]/g) || []).length / letters.length > 0.5;
+}
+
+// --- 여러 줄을 한 번에 번역 (개수가 맞지 않거나 실패하면 한 줄씩 다시)
+async function translateLines(texts) {
+  try {
+    const result = await callGemini('translate_batch', { items: texts }, { temperature: 0.2 });
+    const byId = new Map((Array.isArray(result?.translations) ? result.translations : []).map(t => [Number(t.id), t.ko]));
+    if (texts.every((_, i) => typeof byId.get(i + 1) === 'string' && byId.get(i + 1).trim())) {
+      return texts.map((_, i) => byId.get(i + 1).trim());
+    }
+  } catch (e) {
+    console.warn('Batch translation failed, translating one by one:', e);
+  }
+  const out = [];
+  for (const text of texts) {
+    try {
+      const r = await callGemini('translation', { text });
+      out.push(r?.translated || '번역 중 오류 발생 (건너뜀)');
+    } catch (e) {
+      console.error('Segment translation failed:', e);
+      out.push('번역 중 오류 발생 (건너뜀)');
+    }
+  }
+  return out;
+}
+
+async function runYoutubeTranslation(segments, { sourceMsg, url }) {
+  youtubeOutput.innerHTML = `
+    <div class="result-section fade-in" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; background: transparent; padding: 0; border: none;">
+      <div class="result-label note" style="margin-bottom: 0;">ℹ️ 스크립트 출처: ${escapeHtml(sourceMsg)} · ${segments.length}구간</div>
+      <div>
+        <button class="submit-btn" id="download-txt" style="padding: 8px 16px; font-size: 0.9rem;" disabled>📥 번역 중...</button>
+      </div>
+    </div>
+    <div id="segments-container"></div>
+    <div id="translating-indicator" class="placeholder-message" style="margin-top: 1rem;">
+      <span class="placeholder-icon">🔄</span><p id="translating-progress">AI가 번역 중입니다...</p>
+    </div>
+  `;
+  const container = document.getElementById('segments-container');
+  const progress = document.getElementById('translating-progress');
+  let download = '=== 유튜브 영상 번역 ===\n' + (url ? `URL: ${url}\n` : '') + '\n';
+
+  for (let i = 0; i < segments.length; i += YT_BATCH_SIZE) {
+    const batch = segments.slice(i, i + YT_BATCH_SIZE);
+    progress.textContent = `AI가 번역 중입니다... (${Math.min(i + batch.length, segments.length)}/${segments.length})`;
+    const translated = await translateLines(batch.map(s => s.text));
+    batch.forEach((seg, k) => {
+      const label = seg.time ? `⏱️ [${seg.time}]` : `#${i + k + 1}`;
+      container.insertAdjacentHTML('beforeend', `
+        <div class="transcript-segment fade-in" style="margin-bottom: 1.5rem; padding: 1.2rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+          <div class="timecode" style="color: var(--accent-1); font-weight: 600; font-size: 0.9rem; margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
+            <span>${escapeHtml(label)}</span>
+            <button class="audio-btn" style="padding: 4px 8px; font-size: 0.75rem;" data-speak="${escapeAttr(seg.text)}">🔊 듣기</button>
+          </div>
+          <div class="eng-text" style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 0.8rem; line-height: 1.5;">${escapeHtml(seg.text)}</div>
+          <div class="kor-text" style="font-size: 1.05rem; color: #fff; line-height: 1.6;">${escapeHtml(translated[k])}</div>
+        </div>`);
+      download += `[${seg.time || '#' + (i + k + 1)}]\n원문: ${seg.text}\n번역: ${translated[k]}\n\n`;
+    });
+    makeTextClickable(container);
+    if (i + YT_BATCH_SIZE < segments.length) await new Promise(r => setTimeout(r, YT_BATCH_GAP_MS));
+  }
+
+  document.getElementById('translating-indicator').style.display = 'none';
+  const downloadBtn = document.getElementById('download-txt');
+  downloadBtn.disabled = false;
+  downloadBtn.textContent = '📥 텍스트 파일로 다운로드';
+  downloadBtn.addEventListener('click', () => downloadTextFile('youtube_translation.txt', download));
+}
+
+// --- ① 자막 붙여넣기
+ytPasteText.addEventListener('input', () => { ytPasteCount.textContent = `${ytPasteText.value.length.toLocaleString()}자`; });
+
+async function handleYoutubePaste() {
+  if (youtubeBusy) return;
+  const raw = ytPasteText.value;
+  if (!raw.trim()) { showError(youtubeOutput, '번역할 자막을 먼저 붙여넣어 주세요.'); return; }
+  if (mostlyKorean(raw)) { showError(youtubeOutput, '한국어 자막인 것 같아요. 영어 자막을 붙여넣어 주세요. (유튜브 스크립트 창 아래에서 언어를 영어로 바꿀 수 있어요)'); return; }
+  const { segments, truncated, total } = parseTranscriptText(raw);
+  if (!segments.length) { showError(youtubeOutput, '자막에서 번역할 문장을 찾지 못했어요. 붙여넣은 내용을 확인해 주세요.'); return; }
+  youtubeBusy = true;
+  ytPasteSubmit.disabled = true;
+  try {
+    await runYoutubeTranslation(segments, {
+      sourceMsg: '붙여넣은 자막' + (truncated ? ` (총 ${total}구간 중 앞 ${segments.length}구간만 번역)` : ''),
+      url: ytPasteUrl.value.trim(),
+    });
+  } catch (e) {
+    showError(youtubeOutput, e.message);
+  } finally {
+    youtubeBusy = false;
+    ytPasteSubmit.disabled = false;
+  }
+}
+ytPasteSubmit.addEventListener('click', handleYoutubePaste);
+
+// --- ② 링크로 자동 가져오기 (PC 서버)
 async function handleYoutubeSubmit() {
+  if (youtubeBusy) return;
   const url = youtubeInput.value.trim();
   if (!url) return;
-  showLoading();
+  youtubeBusy = true;
   youtubeSubmit.disabled = true;
   youtubeOutput.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">⏳</span><p>서버에서 영상 스크립트를 추출 중입니다 (최대 1~2분 소요)...</p></div>`;
 
   try {
-    const apiKey = getGeminiApiKey();
-    // 1. 서버에서 스크립트 덩어리(segments) 가져오기
-    const ytData = await fetchYoutubeTranscript(url, apiKey);
-    const segments = ytData.segments;
+    const ytData = await fetchYoutubeTranscript(url, getGeminiApiKey());
     const sourceMsg = ytData.source === 'cc' ? '공식 자막 추출' : '오디오 음성 인식 추출';
-
-    // 2. 스크립트 번역 (각 덩어리마다 번역하여 점진적 렌더링)
-    youtubeOutput.innerHTML = `
-      <div class="result-section fade-in" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; background: transparent; padding: 0; border: none;">
-        <div class="result-label note" style="margin-bottom: 0;">ℹ️ 스크립트 출처: ${sourceMsg}</div>
-        <div>
-          <button class="submit-btn" id="download-txt" style="padding: 8px 16px; font-size: 0.9rem;" disabled>📥 번역 중...</button>
-        </div>
-      </div>
-      <div id="segments-container"></div>
-      <div id="translating-indicator" class="placeholder-message" style="margin-top: 1rem;">
-        <span class="placeholder-icon">🔄</span><p>AI가 순차적으로 번역 중입니다...</p>
-      </div>
-    `;
-
-    const container = document.getElementById('segments-container');
-    let textContentToDownload = "=== 유튜브 영상 번역 ===\nURL: " + url + "\n\n";
-
-    for (const seg of segments) {
-      let translated = '번역 중 오류 발생 (건너뜀)';
-      try {
-          const translationData = await callGemini('translation', { text: seg.text });
-          if (translationData && translationData.translated) {
-              translated = translationData.translated;
-          }
-      } catch (e) {
-          console.error('Segment translation failed:', e);
-      }
-
-      const segmentHtml = `
-        <div class="transcript-segment fade-in" style="margin-bottom: 1.5rem; padding: 1.2rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
-          <div class="timecode" style="color: var(--accent-1); font-weight: 600; font-size: 0.9rem; margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
-            <span>⏱️ [${seg.time}]</span>
-            <button class="audio-btn" style="padding: 4px 8px; font-size: 0.75rem;" data-speak="${escapeAttr(seg.text)}">🔊 듣기</button>
-          </div>
-          <div class="eng-text" style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 0.8rem; line-height: 1.5;">${escapeHtml(seg.text)}</div>
-          <div class="kor-text" style="font-size: 1.05rem; color: #fff; line-height: 1.6;">${escapeHtml(translated)}</div>
-        </div>
-      `;
-
-      container.insertAdjacentHTML('beforeend', segmentHtml);
-      textContentToDownload += `[${seg.time}]\n원문: ${seg.text}\n번역: ${translated}\n\n`;
-
-      // Groq 무료 계정의 분당 토큰 제한(TPM) 초과를 방지하기 위해 청크 사이에 2초 대기
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-
-    document.getElementById('translating-indicator').style.display = 'none';
-
-    const downloadBtn = document.getElementById('download-txt');
-    downloadBtn.disabled = false;
-    downloadBtn.textContent = '📥 텍스트 파일로 다운로드';
-    downloadBtn.addEventListener('click', () => {
-      downloadTextFile('youtube_translation.txt', textContentToDownload);
-    });
-
+    await runYoutubeTranslation(ytData.segments, { sourceMsg, url });
   } catch (e) {
     showError(youtubeOutput, e.message);
+    // PC 서버가 꺼져 있을 때는 바로 붙여넣기 방식으로 이어갈 수 있게 안내
+    if (/PC 서버/.test(e.message)) {
+      youtubeOutput.insertAdjacentHTML('beforeend', `<div style="margin-top:1rem"><button class="submit-btn" id="yt-switch-paste"><span class="btn-text">📋 자막 붙여넣기로 계속하기</span></button></div>`);
+      document.getElementById('yt-switch-paste').addEventListener('click', () => { setYoutubeMode('paste'); ytPasteText.focus(); });
+    }
   } finally {
-    hideLoading();
+    youtubeBusy = false;
     youtubeSubmit.disabled = false;
   }
 }
