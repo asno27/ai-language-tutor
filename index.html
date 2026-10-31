@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=10">
+  <link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
   <div id="app">
@@ -28,6 +28,18 @@
             <option value="advanced">고급 · CEFR C1~C2</option>
           </select>
           <span class="level-hint">AI가 만드는 모든 예문이 이 수준에 맞춰져요</span>
+        </div>
+        <button class="streak-badge" id="streak-badge" aria-expanded="false" aria-controls="streak-panel"><span id="streak-text">🔥 오늘 시작해 보세요</span></button>
+        <div class="streak-panel" id="streak-panel" style="display:none;">
+          <div class="streak-row"><span id="streak-main"></span></div>
+          <div class="streak-bar"><div class="streak-bar-fill" id="streak-bar-fill"></div></div>
+          <div class="streak-today" id="streak-today"></div>
+          <div class="streak-week" id="streak-week"></div>
+          <div class="streak-goal">
+            <label for="streak-goal-select">🎯 하루 목표</label>
+            <select id="streak-goal-select" class="roleplay-select"></select>
+          </div>
+          <p class="streak-note">영작 교정·번역·사전·복습 카드·역할극 대답·쉐도잉 채점 등 <b>학습 활동 1번이 1회</b>로 세어져요. 하루 놓쳐도 어제까지의 연속 기록은 유지돼요.</p>
         </div>
       </div>
     </header>
@@ -544,7 +556,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=13"></script>
+  <script type="module" src="js/app.js?v=14"></script>
 
 
 

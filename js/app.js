@@ -2,6 +2,7 @@
 import { SpeechManager, speak } from './speech.js';
 import { pickDailyScenes, ROLEPLAY_SCENARIOS, LEVELS, DEFAULT_LEVEL, EXAMPLE_TOPICS } from './prompts.js';
 import { compareWords } from './shadowing.js';
+import { logActivity, logMistake, getStats, setGoal, GOAL_CHOICES, GOAL_KEY, loadStudyDays, dayCount, dateKey, applyRemoteStudyDays, collectAllStudyDays, applyRemoteMistakes, collectAllMistakes } from './activity.js';
 import { saveWord, deleteWord, getAllWords, getWordsForReview, getMasteredCount, updateReview, isWordSaved, getTotalCount, applyRemoteVocab, collectAllVocab } from './vocabulary.js';
 import { registerSyncKind, queueChange, onSyncStatus, enableSync, disableSync, syncNow, isSyncEnabled, getSyncCode, formatCode, isValidCode, getLastSyncAt } from './sync.js';
 
@@ -354,7 +355,13 @@ async function handleWritingSubmit() {
   const text = writingInput.value.trim();
   if (!text) return;
   showLoading(); writingSubmit.disabled = true;
-  try { renderWritingResult(await callGemini('writing', { text })); }
+  try {
+    const data = await callGemini('writing', { text });
+    renderWritingResult(data);
+    logActivity('writing');
+    // 틀린 문장은 "내 실수" 기록으로 남김 (반복 실수 분석용)
+    if (data && data.isCorrect === false) logMistake({ source: 'writing', original: text, corrected: data.corrected, comment: data.feedback });
+  }
   catch (e) { showError(writingOutput, e.message); }
   finally { hideLoading(); writingSubmit.disabled = false; }
 }
@@ -375,7 +382,7 @@ async function handleTranslationSubmit() {
   const text = translationInput.value.trim();
   if (!text) return;
   showLoading(); translationSubmit.disabled = true;
-  try { renderTranslationResult(await callGemini('translation', { text })); }
+  try { renderTranslationResult(await callGemini('translation', { text })); logActivity('translation'); }
   catch (e) { showError(translationOutput, e.message); }
   finally { hideLoading(); translationSubmit.disabled = false; }
 }
@@ -457,6 +464,7 @@ async function handleDictionarySubmit() {
   try {
     const [dictData, llmData] = await Promise.all([lookupDictionary(word), callGemini('dictionary', { word })]);
     renderDictionaryResult(dictData, llmData);
+    logActivity('dictionary');
   } catch (e) { showError(dictionaryOutput, e.message); }
   finally { hideLoading(); dictionarySubmit.disabled = false; }
 }
@@ -562,6 +570,7 @@ document.querySelectorAll('.rating-btn').forEach(btn => {
     const quality = parseInt(btn.dataset.quality);
     const w = reviewWords[currentCardIndex];
     updateReview(w.id, quality);
+    logActivity('review');
     currentCardIndex++;
     showCard();
   });
@@ -655,6 +664,7 @@ async function generateDailySentence() {
     const data = { ...result, date: new Date().toISOString() };
     localStorage.setItem('daily_sentence', JSON.stringify(data));
     saveToDailyArchive(data);
+    logActivity('daily');
     if (dailyArchive.style.display !== 'none') renderArchive();
     displayDailySentence(data);
   } catch (e) {
@@ -805,6 +815,7 @@ let archiveSelectedKey = toDateKey(new Date());
 
 function renderArchive() {
   const archive = loadDailyArchive();
+  const studyDays = loadStudyDays();
   const year = archiveMonth.getFullYear();
   const month = archiveMonth.getMonth();
   const todayKey = toDateKey(new Date());
@@ -818,6 +829,7 @@ function renderArchive() {
     const count = archive[key]?.length || 0;
     const classes = ['archive-day'];
     if (count) classes.push('has-entry');
+    if (dayCount(studyDays[key]) > 0) classes.push('studied');
     if (key === todayKey) classes.push('today');
     if (key === archiveSelectedKey) classes.push('selected');
     html += `<button class="${classes.join(' ')}" data-key="${key}" ${count ? '' : 'disabled'} title="${count ? `추천 ${count}세트` : ''}">
@@ -968,6 +980,7 @@ if (worksheetSelect) {
         }
       });
       worksheetCheckBtn.querySelector('.btn-text').textContent = allCorrect ? '완벽합니다! 🎉' : '다시 복습해보세요';
+      logActivity('worksheet');
     };
 
     worksheetShadowingText.textContent = ws.shadowing.text;
@@ -1535,6 +1548,11 @@ async function sendRoleplayMessage() {
     const result = await requestRoleplayTurn(text);
     roleplaySession.history.push({ role: 'user', text }, { role: 'ai', text: result.reply });
     renderRoleplayFeedback(feedbackEl, result.feedback, text);
+    logActivity('roleplay');
+    const fb = result.feedback;
+    if (fb && fb.corrected && !/[가-힣]/.test(text) && !(fb.isNatural && (!Number.isFinite(fb.score) || fb.score >= 85))) {
+      logMistake({ source: 'roleplay', original: text, corrected: fb.corrected, comment: fb.comment });
+    }
     addRoleplayAiMessage(result.reply, result.replyKo);
     renderRoleplaySuggestions(result.suggestions);
     finishRoleplayIfEnded(result);
@@ -1845,6 +1863,7 @@ pdfSpeech.onResult = async (text) => {
 const SHADOW_LABELS = { correct: '정확', close: '비슷함', wrong: '틀림', missed: '빠짐' };
 
 function renderShadowingFeedback(container, target, recognized) {
+  logActivity('shadowing');
   const { words, extra, score } = compareWords(target, recognized);
   const count = (st) => words.filter(w => w.status === st).length;
   const grade = score >= 90 ? 'good' : score >= 60 ? 'ok' : 'needs-work';
@@ -1970,6 +1989,7 @@ renderPdfRecent();
 
 // === 기기 간 동기화 (Phase 2.5) ===
 function refreshAfterSync() {
+  renderStreak();
   updateVocabStats();
   if ($('#pane-vocabulary').classList.contains('active')) renderVocabList();
   if (dailyArchive.style.display !== 'none') renderArchive();
@@ -2007,7 +2027,17 @@ registerSyncKind('daily_set', {
 });
 
 // 설정 값: 키별로 더 최근에 바꾼 쪽이 이김. 수정 시각은 `${키}_at`에 보관
-const SYNCED_SETTINGS = ['vocab_interests', USER_LEVEL_KEY];
+const SYNCED_SETTINGS = ['vocab_interests', USER_LEVEL_KEY, GOAL_KEY];
+
+registerSyncKind('study_day', {
+  apply: applyRemoteStudyDays,
+  collectAll: collectAllStudyDays,
+});
+
+registerSyncKind('mistake', {
+  apply: applyRemoteMistakes,
+  collectAll: collectAllMistakes,
+});
 
 registerSyncKind('setting', {
   apply(changes) {
@@ -2225,6 +2255,7 @@ async function showExamples(forceNew) {
   try {
     const avoid = (cached?.seen || []).slice(-EXAMPLES_AVOID_COUNT);
     const result = await callGemini('examples', { topic: t.topic, level, avoid }, { temperature: 0.9 });
+    logActivity('examples');
     const examples = (result?.examples || []).filter(ex => ex?.sentence).slice(0, 5);
     if (!examples.length) throw new Error('예문을 받지 못했어요. 다시 시도해 주세요.');
     const entry = {
@@ -2407,3 +2438,45 @@ tabBtns.forEach(btn => btn.addEventListener('click', () => {
 }));
 
 applyUserLevelUi();
+
+
+// === 🔥 연속 학습일 · 하루 목표 (Phase 5.2) ===
+const streakBadge = $('#streak-badge');
+const streakPanel = $('#streak-panel');
+const streakGoalSelect = $('#streak-goal-select');
+streakGoalSelect.innerHTML = GOAL_CHOICES.map(n => `<option value="${n}">${n}회</option>`).join('');
+
+function renderStreak() {
+  const s = getStats();
+  const text = s.streak > 0
+    ? `🔥 ${s.streak}일 연속 · 오늘 ${Math.min(s.todayCount, 99)}/${s.goal}${s.goalReached ? ' ✅' : ''}`
+    : `🔥 오늘 시작해 보세요 · ${s.todayCount}/${s.goal}`;
+  $('#streak-text').textContent = text;
+  streakBadge.classList.toggle('done', s.goalReached);
+
+  $('#streak-main').innerHTML = s.streak > 0
+    ? `<b>${s.streak}일 연속</b> 학습 중 <span class="streak-best">(최장 ${s.best}일)</span>`
+    : `연속 기록이 아직 없어요. 오늘 한 번이면 <b>1일째</b>예요!`;
+  const pct = Math.min(100, Math.round((s.todayCount / s.goal) * 100));
+  $('#streak-bar-fill').style.width = pct + '%';
+  $('#streak-today').textContent = s.goalReached
+    ? `오늘 목표 달성! (${s.todayCount}/${s.goal}회)`
+    : s.studiedToday
+      ? `오늘 ${s.todayCount}/${s.goal}회 — ${s.goal - s.todayCount}번 더 하면 목표 달성`
+      : s.streak > 0 ? `오늘 학습하면 ${s.streak + 1}일째가 돼요` : `오늘 ${s.goal}번 학습해 보세요`;
+  $('#streak-week').innerHTML = s.last7.map(d =>
+    `<span class="streak-day${d.count > 0 ? ' on' : ''}${d.isToday ? ' today' : ''}" title="${d.key} · ${d.count}회"><i>${d.count > 0 ? '●' : '○'}</i>${d.label}</span>`
+  ).join('');
+  streakGoalSelect.value = String(s.goal);
+  if (typeof archiveGrid !== 'undefined' && dailyArchive.style.display !== 'none') renderArchive();
+}
+
+streakBadge.addEventListener('click', () => {
+  const open = streakPanel.style.display === 'none';
+  streakPanel.style.display = open ? 'block' : 'none';
+  streakBadge.setAttribute('aria-expanded', String(open));
+  if (open) renderStreak();
+});
+streakGoalSelect.addEventListener('change', () => setGoal(Number(streakGoalSelect.value)));
+window.addEventListener('activity-changed', renderStreak);
+renderStreak();
