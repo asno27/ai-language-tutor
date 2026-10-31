@@ -85,6 +85,7 @@
 | 📐 문법 | `app.js` "문법 설명", prompts `grammar`/`GRAMMAR_TOPICS`/`quiz_check` | 레벨별 설명, 확인 문제는 `verifyExercises`로 검수 |
 | 🧭 코스 | `data/course.json`, `js/course.js`, `app.js` "학습 코스" | 단원·단계는 JSON, 진행은 `course_progress`(동기화 종류 `course_step`) |
 | ✨ AI 학습지 | `app.js` "AI 오리지널 학습지", prompts `ai_worksheet` | 결과는 `localStorage.ai_worksheets`(최근 10개), 형식은 `data/worksheet.json`과 같고 `dialogue`가 추가됨 |
+| 🎧 파일 받아쓰기 | `worker/transcribe.js`, `js/api.js` `transcribeFile`, `app.js` "내 음성·영상 파일" | Groq Whisper, 25MB, 한도는 `worker/ratelimit.js`의 `transcribe` |
 | 단어장 | `js/vocabulary.js` (SM-2 복습) | 하단에 🔄 동기화 카드 |
 | 오늘의 영어 추천 | prompts `daily`, `pickDailyScenes()` | 반복 방지 + 📅 달력 아카이브(`daily_archive`) |
 | 인터랙티브 학습지 | `data/worksheet.json` + "PDF WORKSHEET" | 📄 PDF 업로드 → 요약·핵심 단어·빈칸·쉐도잉 (pdf.js 6.3.289, cdnjs) |

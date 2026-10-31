@@ -8,6 +8,7 @@
 const LIMITS = {
   llm:  { browser: { perMinute: 60,  perDay: 600  }, other: { perMinute: 10, perDay: 100 } },
   sync: { browser: { perMinute: 120, perDay: 2000 }, other: { perMinute: 20, perDay: 200 } },
+  transcribe: { browser: { perMinute: 3, perDay: 20 }, other: { perMinute: 1, perDay: 5 } }, // 파일이 크고 Groq 받아쓰기 무료 한도(시간당 음성 길이)가 작아 낮게
 };
 const MINUTE_MS = 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -21,7 +22,7 @@ async function sha256Hex(text) {
 }
 
 /**
- * @param {string} scope  'llm' | 'sync'
+ * @param {string} scope  'llm' | 'sync' | 'transcribe'
  * @param {boolean} hasOrigin  브라우저가 출처(Origin)를 붙여 보냈는지
  * @returns {null | { message: string, retryAfter: number }}  한도 초과면 안내, 아니면 null
  */

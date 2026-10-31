@@ -13,6 +13,7 @@
 //   GEMINI_MODEL, GROQ_MODEL, WORKERS_AI_MODEL, LLM_ORDER (Text, 선택 — 모델이 단종되면 여기서만 바꾸면 됨)
 
 import { handleSync } from './sync.js';
+import { handleTranscribe } from './transcribe.js';
 import { checkRateLimit } from './ratelimit.js';
 
 const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
@@ -169,7 +170,7 @@ export default {
 
     // 사이트 파일(index.html 등)은 Cloudflare가 먼저 처리하고, 없는 경로만 여기로 옴
     const path = new URL(request.url).pathname;
-    if (path !== '/api/llm' && path !== '/api/sync') {
+    if (path !== '/api/llm' && path !== '/api/sync' && path !== '/api/transcribe') {
       return json({ success: false, detail: 'Not found' }, 404, cors);
     }
     if (request.method === 'OPTIONS') {
@@ -184,9 +185,18 @@ export default {
     }
 
     // IP별 요청 횟수 제한 (주소가 공개돼 있어 누구나 무료 AI 한도를 쓸 수 있는 것을 막음)
-    const limited = await checkRateLimit(env, request, path === '/api/sync' ? 'sync' : 'llm', !!origin);
+    const limited = await checkRateLimit(env, request, path === '/api/sync' ? 'sync' : path === '/api/transcribe' ? 'transcribe' : 'llm', !!origin);
     if (limited) {
       return json({ success: false, detail: limited.message }, 429, { ...cors, 'Retry-After': String(limited.retryAfter) });
+    }
+
+    if (path === '/api/transcribe') {
+      try {
+        return await handleTranscribe(request, env, cors, json);
+      } catch (e) {
+        console.error('Transcribe failed:', e);
+        return json({ success: false, detail: `Transcribe error: ${e.message || e}` }, 500, cors);
+      }
     }
 
     if (path === '/api/sync') {

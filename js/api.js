@@ -136,6 +136,19 @@ export async function fetchYoutubeTranscript(url, apiKey) {
   return await response.json();
 }
 
-
-
-
+/** 음성·영상 파일 받아쓰기 (Y-4): Worker가 Groq Whisper로 처리. 시간이 있는 구간 목록을 돌려줌 */
+export async function transcribeFile(file, language = 'en') {
+  const form = new FormData();
+  form.append('file', file, file.name);
+  form.append('language', language);
+  let res;
+  try {
+    res = await fetch(getWorkerOrigin() + '/api/transcribe', { method: 'POST', body: form });
+  } catch {
+    throw new Error('서버에 연결하지 못했어요. 인터넷 연결을 확인하거나 잠시 뒤 다시 시도해 주세요.');
+  }
+  let body = null;
+  try { body = await res.json(); } catch {}
+  if (!res.ok || !body?.success) throw new Error(body?.detail || `받아쓰기에 실패했어요 (${res.status})`);
+  return body.data;
+}

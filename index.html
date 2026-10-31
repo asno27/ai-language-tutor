@@ -557,10 +557,11 @@
         <div class="glass-card input-card">
           <div class="card-header">
             <h2>▶️ 유튜브 번역</h2>
-            <p class="card-desc">영어 자막을 한국어로 번역합니다. 방법은 두 가지예요</p>
+            <p class="card-desc">영어 자막이나 음성을 한국어로 번역합니다. 방법은 세 가지예요</p>
           </div>
           <div class="roleplay-scenarios" id="yt-modes">
             <button class="roleplay-chip active" data-ytmode="paste">📋 자막 붙여넣기 · PC 필요 없음</button>
+            <button class="roleplay-chip" data-ytmode="file">🎧 내 파일 받아쓰기 · PC 필요 없음</button>
             <button class="roleplay-chip" data-ytmode="link">🔗 링크로 자동 가져오기 · PC 서버 필요</button>
           </div>
           <div id="yt-paste-mode">
@@ -574,6 +575,18 @@
             <div class="input-actions">
               <span class="char-count" id="yt-paste-count">0자</span>
               <button class="submit-btn" id="yt-paste-submit"><span class="btn-text">번역</span><span class="btn-icon">→</span></button>
+            </div>
+          </div>
+          <div id="yt-file-mode" style="display:none;">
+            <p class="yt-note">가지고 있는 영어 음성·영상 파일(수업 녹음, 팟캐스트, 내가 찍은 영상 등)을 올리면 AI가 받아쓰고 한국어로 번역해요. <b>mp3 · m4a · wav · mp4 · webm</b>, <b>25MB 이하</b>. 파일은 받아쓰기를 위해 AI 서비스(Groq)로 전송되고 저장되지 않아요. <b>내가 쓸 권리가 있는 파일만</b> 올려 주세요.</p>
+            <label class="pdf-drop" id="yt-file-drop">
+              <input type="file" id="yt-file-input" accept="audio/*,video/mp4,video/webm,.mp3,.m4a,.wav,.mp4,.webm,.ogg,.flac,.mpeg,.mpga" hidden>
+              <span class="pdf-drop-icon">🎧</span>
+              <span id="yt-file-label">파일 선택 <span class="pdf-drop-sub">또는 여기로 끌어다 놓기</span></span>
+            </label>
+            <div class="input-actions">
+              <span class="char-count" id="yt-file-info"></span>
+              <button class="submit-btn" id="yt-file-submit"><span class="btn-text">받아쓰고 번역</span><span class="btn-icon">→</span></button>
             </div>
           </div>
           <div id="yt-link-mode" style="display:none;">
@@ -642,7 +655,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=27"></script>
+  <script type="module" src="js/app.js?v=28"></script>
 
 
 

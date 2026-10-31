@@ -1,4 +1,4 @@
-﻿import { callGemini, lookupDictionary, fetchYoutubeTranscript, getGeminiApiKey } from './api.js';
+﻿import { transcribeFile, callGemini, lookupDictionary, fetchYoutubeTranscript, getGeminiApiKey } from './api.js';
 import { SpeechManager, speak } from './speech.js';
 import { pickDailyScenes, ROLEPLAY_SCENARIOS, LEVELS, DEFAULT_LEVEL, EXAMPLE_TOPICS, GRAMMAR_TOPICS } from './prompts.js';
 import { compareWords } from './shadowing.js';
@@ -1221,9 +1221,10 @@ const ytPasteSubmit = $('#yt-paste-submit');
 let youtubeBusy = false;
 
 function setYoutubeMode(mode) {
-  const m = mode === 'link' ? 'link' : 'paste';
+  const m = mode === 'link' || mode === 'file' ? mode : 'paste';
   ytPasteMode.style.display = m === 'paste' ? 'block' : 'none';
   ytLinkMode.style.display = m === 'link' ? 'block' : 'none';
+  $('#yt-file-mode').style.display = m === 'file' ? 'block' : 'none';
   ytModes.querySelectorAll('.roleplay-chip').forEach(c => c.classList.toggle('active', c.dataset.ytmode === m));
   try { localStorage.setItem(YT_MODE_KEY, m); } catch {}
 }
@@ -1379,6 +1380,67 @@ async function handleYoutubePaste() {
   }
 }
 ytPasteSubmit.addEventListener('click', handleYoutubePaste);
+
+// --- ③ 내 음성·영상 파일 받아쓰기 (Y-4, Worker + Groq Whisper, PC 불필요)
+const ytFileInput = $('#yt-file-input');
+const ytFileDrop = $('#yt-file-drop');
+const ytFileLabel = $('#yt-file-label');
+const ytFileInfo = $('#yt-file-info');
+const ytFileSubmit = $('#yt-file-submit');
+const YT_FILE_MAX_BYTES = 25 * 1024 * 1024;
+let ytFile = null;
+
+function setYtFile(file) {
+  ytFile = file || null;
+  ytFileLabel.textContent = ytFile ? ytFile.name : '파일 선택 또는 여기로 끌어다 놓기';
+  const mb = ytFile ? ytFile.size / 1048576 : 0;
+  ytFileInfo.textContent = ytFile ? `${mb.toFixed(1)}MB${ytFile.size > YT_FILE_MAX_BYTES ? ' · 25MB를 넘어요' : ''}` : '';
+}
+ytFileInput.addEventListener('change', () => setYtFile(ytFileInput.files[0]));
+ytFileDrop.addEventListener('dragover', (e) => e.preventDefault());
+ytFileDrop.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer.files[0]) setYtFile(e.dataTransfer.files[0]);
+});
+
+const formatClock = (sec) => {
+  const s = Math.max(0, Math.floor(sec));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+  return `${h ? `${h}:${String(m).padStart(2, '0')}` : m}:${String(r).padStart(2, '0')}`;
+};
+
+/** Whisper의 짧은 구간들을 번역하기 좋은 길이(약 140자)로 묶음 */
+function groupWhisperSegments(segments) {
+  const out = [];
+  let cur = null;
+  for (const seg of segments) {
+    if (!cur) cur = { time: formatClock(seg.start), text: seg.text };
+    else cur.text += ' ' + seg.text;
+    if (cur.text.length >= YT_SEGMENT_TARGET_CHARS) { out.push(cur); cur = null; }
+  }
+  if (cur) out.push(cur);
+  return out.slice(0, YT_PASTE_MAX_SEGMENTS);
+}
+
+async function handleYoutubeFile() {
+  if (youtubeBusy) return;
+  if (!ytFile) { showError(youtubeOutput, '음성이나 영상 파일을 먼저 선택해 주세요.'); return; }
+  if (ytFile.size > YT_FILE_MAX_BYTES) { showError(youtubeOutput, `파일이 너무 커요 (${(ytFile.size / 1048576).toFixed(1)}MB). 25MB 이하로 줄여 주세요. mp3로 변환하면 크게 줄어요.`); return; }
+  youtubeBusy = true;
+  ytFileSubmit.disabled = true;
+  youtubeOutput.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">🎧</span><p>파일을 올리고 받아쓰는 중이에요... (길이에 따라 10초~1분)</p></div>`;
+  try {
+    const data = await transcribeFile(ytFile, 'en');
+    const segments = groupWhisperSegments(data.segments.length ? data.segments : [{ start: 0, text: data.text }]);
+    await runYoutubeTranslation(segments, { sourceMsg: `내 파일 받아쓰기 (${ytFile.name})`, url: '' });
+  } catch (e) {
+    showError(youtubeOutput, e.message);
+  } finally {
+    youtubeBusy = false;
+    ytFileSubmit.disabled = false;
+  }
+}
+ytFileSubmit.addEventListener('click', handleYoutubeFile);
 
 // --- ② 링크로 자동 가져오기 (PC 서버)
 async function handleYoutubeSubmit() {
