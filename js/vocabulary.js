@@ -56,6 +56,9 @@ function sm2(quality, repetitions, easeFactor, interval) {
 }
 
 export function saveWord(wordData) {
+  // 빈 단어·공백뿐인 단어·객체가 아닌 값은 저장하지 않음 (예전 미니 사전 버그로 빈 항목이 쌓였음)
+  if (!wordData || typeof wordData.word !== 'string' || !wordData.word.trim()) return false;
+  wordData = { ...wordData, word: wordData.word.trim() };
   const words = loadVocabulary();
   if (words.some(w => w.word.toLowerCase() === wordData.word.toLowerCase())) return false; // already exists
 

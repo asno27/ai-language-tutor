@@ -90,7 +90,7 @@
             <h2>✍️ 영작 교정</h2>
             <p class="card-desc">영어 문장을 입력하면 자연스러운 원어민 표현으로 교정해 드려요</p>
           </div>
-          <textarea id="writing-input" class="text-input" placeholder="교정받고 싶은 영어 문장을 입력하세요...&#10;&#10;예: I have went to school yesterday." rows="5"></textarea>
+          <textarea id="writing-input" maxlength="5000" class="text-input" placeholder="교정받고 싶은 영어 문장을 입력하세요...&#10;&#10;예: I have went to school yesterday." rows="5"></textarea>
           <div class="input-actions">
             <span class="char-count" id="writing-char-count">0자</span>
             <button class="submit-btn" id="writing-submit">
@@ -114,7 +114,7 @@
             <h2>🌐 번역</h2>
             <p class="card-desc">한국어 ↔ 영어 자연스러운 번역과 뉘앙스 설명을 제공해요</p>
           </div>
-          <textarea id="translation-input" class="text-input" placeholder="번역할 문장을 입력하세요 (한국어 또는 영어)...&#10;&#10;예: 이 프로젝트는 정말 보람 있었어요." rows="5"></textarea>
+          <textarea id="translation-input" maxlength="5000" class="text-input" placeholder="번역할 문장을 입력하세요 (한국어 또는 영어)...&#10;&#10;예: 이 프로젝트는 정말 보람 있었어요." rows="5"></textarea>
           <div class="input-actions">
             <span class="char-count" id="translation-char-count">0자</span>
             <button class="submit-btn" id="translation-submit">
@@ -301,7 +301,7 @@
           <div class="roleplay-suggestions" id="roleplay-suggestions"></div>
           <div class="roleplay-input-row">
             <button class="roleplay-mic" id="roleplay-mic" title="말로 대답하기">🎤</button>
-            <input type="text" id="roleplay-input" class="text-input" placeholder="영어로 대답해 보세요 (한국어로 쓰면 영어 표현을 알려드려요)">
+            <input type="text" id="roleplay-input" maxlength="500" class="text-input" placeholder="영어로 대답해 보세요 (한국어로 쓰면 영어 표현을 알려드려요)">
             <button class="submit-btn roleplay-send" id="roleplay-send">보내기</button>
           </div>
         </div>
@@ -382,7 +382,7 @@
             <p class="card-desc">소울영어 학습지를 직접 풀고 낭독하며 실력을 키워보세요</p>
           </div>
           <div class="worksheet-selector" style="margin-bottom: 1.5rem;">
-            <select id="worksheet-select" class="text-input" style="cursor:pointer; width:100%;">
+            <select id="worksheet-select" aria-label="학습할 주차 선택" class="text-input" style="cursor:pointer; width:100%;">
               <option value="" disabled selected>학습할 주차를 선택하세요</option>
             </select>
           </div>
@@ -524,7 +524,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=11"></script>
+  <script type="module" src="js/app.js?v=12"></script>
 
 
 

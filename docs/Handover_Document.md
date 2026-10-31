@@ -106,7 +106,7 @@ js/vocabulary.js      단어장 + SM-2 + 동기화 합치기
 js/shadowing.js       발음 단어별 비교 (Levenshtein)
 js/sync.js            동기화 클라이언트
 js/languages.js       다국어 설정 (Phase 4 대비, 아직 어디서도 사용 안 함)
-data/worksheet.json   주간 학습지 1~10주차
+data/worksheet.json   주간 학습지 (현재 1~4주차)
 worker/llm-worker.js  Cloudflare Worker 진입점 (/api/llm, 라우팅, CORS)
 worker/sync.js        /api/sync
 wrangler.jsonc        Cloudflare 배포 설정

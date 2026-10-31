@@ -53,6 +53,12 @@ async function postLlm(url, systemPrompt, userMessage, options = {}) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.success) {
+    // 입력 자체의 문제(400/413)는 다른 서버로 넘겨도 똑같이 실패하므로 바로 이유를 알려줌
+    if (response.status === 413) {
+      const err = new Error('입력이 너무 깁니다. 내용을 줄여서 다시 시도해 주세요.');
+      err.fatal = true;
+      throw err;
+    }
     throw new Error(result.detail || `서버 오류: ${response.status}`);
   }
   return result.data;
@@ -71,6 +77,7 @@ export async function callGemini(mode, data, options = {}) {
     try {
       return await postLlm(backend.url, systemPrompt, userMessage, options);
     } catch (e) {
+      if (e.fatal) throw e;
       console.warn(`${backend.name} /api/llm 실패:`, e);
     }
   }

@@ -8,6 +8,17 @@ import { registerSyncKind, queueChange, onSyncStatus, enableSync, disableSync, s
 // TTS 함수를 전역으로 노출 (innerHTML onclick에서 사용)
 window.speakText = speak;
 
+// 🔊 듣기 · 쉐도잉 · 원어민 발음 버튼: 문장을 data- 속성에 담고 여기서 한 번에 처리
+// (예전에는 onclick="speakText('문장')"으로 넣어서 문장에 큰따옴표가 있으면 버튼이 깨지고 속성 주입이 가능했음)
+document.addEventListener('click', (e) => {
+  const speakBtn = e.target.closest('[data-speak]');
+  if (speakBtn) { speak(speakBtn.dataset.speak); return; }
+  const audioBtn = e.target.closest('[data-audio]');
+  if (audioBtn) { new Audio(audioBtn.dataset.audio).play().catch(() => {}); return; }
+  const shadowBtn = e.target.closest('[data-shadow]');
+  if (shadowBtn) window.setShadowingTarget(shadowBtn.dataset.shadow);
+});
+
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
@@ -191,7 +202,7 @@ window.handleNuanceSubmit = async function() {
           w.examples.forEach(ex => {
             html += `
               <div style="margin-bottom: 0.5rem; font-size: 0.9rem;">
-                <div style="color: #fff;">• ${esc(ex.en)} <button class="audio-btn" style="padding:2px 6px;font-size:0.7rem;background:transparent;" onclick="speakText('${esc(ex.en).replace(/'/g, "\\'")}')">🔊</button></div>
+                <div style="color: #fff;">• ${esc(ex.en)} <button class="audio-btn" style="padding:2px 6px;font-size:0.7rem;background:transparent;" data-speak="${esc(ex.en)}">🔊</button></div>
                 <div style="color: var(--text-muted); margin-left: 10px;">→ ${esc(ex.ko)}</div>
               </div>
             `;
@@ -287,6 +298,8 @@ translationInput.addEventListener('input', () => translationCharCount.textConten
 function showLoading() { loading.style.display = 'flex'; }
 function hideLoading() { loading.style.display = 'none'; }
 function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+// HTML 속성값(큰따옴표/작은따옴표로 감싸는 값)에 넣을 때는 반드시 이것을 사용 (escapeHtml은 따옴표를 바꾸지 않음)
+function escapeAttr(text) { return escapeHtml(text).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 function showError(el, msg) {
   el.innerHTML = `<div class="result-section fade-in"><div class="result-label warning">⚠️ 오류</div><div class="result-text">${escapeHtml(msg)}</div></div>`;
 }
@@ -323,11 +336,11 @@ function renderWritingResult(data) {
   let html = '';
   if (data.isCorrect) {
     html = `<div class="result-section fade-in"><div class="result-label correction">✨ 완벽한 문장!</div><div class="result-text highlight">${escapeHtml(data.corrected)}</div>
-    <button class="audio-btn" onclick="speakText('${escapeHtml(data.corrected).replace(/'/g, "\\'")}')">🔊 들어보기</button></div>
+    <button class="audio-btn" data-speak="${escapeAttr(data.corrected)}">🔊 들어보기</button></div>
     <div class="result-section fade-in"><div class="result-label feedback">💡 피드백</div><div class="result-text">${escapeHtml(data.feedback)}</div></div>`;
   } else {
     html = `<div class="result-section fade-in"><div class="result-label correction">🔄 교정된 문장</div><div class="result-text highlight">${escapeHtml(data.corrected)}</div>
-    <button class="audio-btn" onclick="speakText('${escapeHtml(data.corrected).replace(/'/g, "\\'")}')">🔊 들어보기</button></div>
+    <button class="audio-btn" data-speak="${escapeAttr(data.corrected)}">🔊 들어보기</button></div>
     <div class="result-section fade-in"><div class="result-label feedback">💡 피드백</div><div class="result-text">${escapeHtml(data.feedback)}</div></div>`;
     if (data.suggestion) {
       html += `<div class="result-section fade-in"><div class="result-label suggestion">🌟 더 자연스러운 표현</div><div class="result-text">${escapeHtml(data.suggestion)}</div></div>`;
@@ -352,7 +365,7 @@ writingInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ct
 function renderTranslationResult(data) {
   const isEnglishResult = data.sourceLanguage === 'ko';
   let html = `<div class="result-section fade-in"><div class="result-label translation">🌐 번역 결과 (${data.sourceLanguage === 'ko' ? '한→영' : '영→한'})</div><div class="result-text highlight">${escapeHtml(data.translated)}</div>
-  ${isEnglishResult ? `<button class="audio-btn" onclick="speakText('${escapeHtml(data.translated).replace(/'/g, "\\'")}')">🔊 영어 발음 듣기</button>` : ''}</div>`;
+  ${isEnglishResult ? `<button class="audio-btn" data-speak="${escapeAttr(data.translated)}">🔊 영어 발음 듣기</button>` : ''}</div>`;
   if (data.note) html += `<div class="result-section fade-in"><div class="result-label note">📝 참고 사항</div><div class="result-text">${escapeHtml(data.note)}</div></div>`;
   translationOutput.innerHTML = html;
   makeTextClickable(translationOutput);
@@ -376,13 +389,13 @@ function renderDictionaryResult(dictData, llmData) {
   let html = `<div class="result-section fade-in"><div class="result-label word-title">📖 ${escapeHtml(word)} ${phonetic ? `<span style="font-weight:400;color:var(--text-muted);font-size:0.9rem">${escapeHtml(phonetic)}</span>` : ''}</div>`;
   // 발음 듣기: Free Dictionary API 음성 있으면 사용, 없으면 TTS
   if (dictData?.audioUrl) {
-    html += `<button class="audio-btn" onclick="new Audio('${dictData.audioUrl}').play()">🔊 원어민 발음</button> `;
+    html += `<button class="audio-btn" data-audio="${escapeAttr(dictData.audioUrl)}">🔊 원어민 발음</button> `;
   }
-  html += `<button class="audio-btn" onclick="speakText('${escapeHtml(word).replace(/'/g, "\\'")}')">${dictData?.audioUrl ? '🗣️ TTS 발음' : '🔊 발음 듣기'}</button>`;
+  html += `<button class="audio-btn" data-speak="${escapeAttr(word)}">${dictData?.audioUrl ? '🗣️ TTS 발음' : '🔊 발음 듣기'}</button>`;
 
   // Add save-to-vocabulary button
   const saved = isWordSaved(word);
-  html += ` <button class="vocab-save-btn ${saved ? 'saved' : ''}" id="dict-save-btn" ${saved ? 'disabled' : ''} data-word="${escapeHtml(word)}" data-phonetic="${escapeHtml(phonetic)}">${saved ? '✅ 저장됨' : '⭐ 단어장에 저장'}</button>`;
+  html += ` <button class="vocab-save-btn ${saved ? 'saved' : ''}" id="dict-save-btn" ${saved ? 'disabled' : ''} data-word="${escapeAttr(word)}" data-phonetic="${escapeAttr(phonetic)}">${saved ? '✅ 저장됨' : '⭐ 단어장에 저장'}</button>`;
   html += `</div>`;
   if (llmData?.meanings?.length) {
     html += `<div class="result-section fade-in"><div class="result-label pos">🏷️ 품사 및 뜻</div>`;
@@ -391,7 +404,7 @@ function renderDictionaryResult(dictData, llmData) {
   }
   if (llmData?.examples?.length) {
     html += `<div class="result-section fade-in"><div class="result-label example">💬 예문</div>`;
-    llmData.examples.forEach(ex => { html += `<div class="result-text" style="margin-bottom:8px">• ${escapeHtml(ex.en)} <button class="audio-btn" style="padding:4px 10px;font-size:0.75rem" onclick="speakText('${escapeHtml(ex.en).replace(/'/g, "\\'")}')"">🔊</button><br><span style="color:var(--text-muted);font-size:0.9rem">→ ${escapeHtml(ex.ko)}</span></div>`; });
+    llmData.examples.forEach(ex => { html += `<div class="result-text" style="margin-bottom:8px">• ${escapeHtml(ex.en)} <button class="audio-btn" style="padding:4px 10px;font-size:0.75rem" data-speak="${escapeAttr(ex.en)}">🔊</button><br><span style="color:var(--text-muted);font-size:0.9rem">→ ${escapeHtml(ex.ko)}</span></div>`; });
     html += `</div>`;
   }
   dictionaryOutput.innerHTML = html;
@@ -478,7 +491,7 @@ function renderVocabList() {
         <div class="vocab-item-meaning">${escapeHtml(meaningText)}</div>
       </div>
       <div class="vocab-item-actions">
-        <button class="audio-btn" style="padding:4px 10px;font-size:0.75rem" onclick="speakText('${escapeHtml(w.word).replace(/'/g, "\\\'")}')">🔊</button>
+        <button class="audio-btn" style="padding:4px 10px;font-size:0.75rem" data-speak="${escapeAttr(w.word)}">🔊</button>
         <button class="vocab-delete-btn" data-id="${w.id}" title="삭제">🗑️</button>
       </div>
     </div>`;
@@ -668,13 +681,13 @@ function renderThemeCards(themes) {
             <span style="background: linear-gradient(135deg, var(--accent-1), var(--accent-2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: bold; font-size: 0.9rem;">
               🏷️ ${escapeHtml(theme.name)}
             </span>
-            <button class="audio-btn" style="padding: 4px 10px; font-size: 0.8rem;" onclick="speakText('${escapeHtml(theme.sentence).replace(/'/g, "\\'")}')">🔊 듣기</button>
+            <button class="audio-btn" style="padding: 4px 10px; font-size: 0.8rem;" data-speak="${escapeAttr(theme.sentence)}">🔊 듣기</button>
           </div>
           <div class="daily-sentence-text" style="font-size: 1.1rem; margin-bottom: 5px; color: #fff;">${escapeHtml(theme.sentence)}</div>
           <div class="daily-sentence-translation" style="color: var(--text-muted); font-size: 0.95rem;">🇰🇷 ${escapeHtml(theme.translation)}</div>
           ${wordsHtml}
           <div style="margin-top: 10px; text-align: right;">
-            <button class="audio-btn" style="background: rgba(255,255,255,0.1); padding: 5px 12px; font-size: 0.8rem;" onclick="setShadowingTarget('${escapeHtml(theme.sentence).replace(/'/g, "\\'")}')">🎙️ 이 문장으로 쉐도잉 연습</button>
+            <button class="audio-btn" style="background: rgba(255,255,255,0.1); padding: 5px 12px; font-size: 0.8rem;" data-shadow="${escapeAttr(theme.sentence)}">🎙️ 이 문장으로 쉐도잉 연습</button>
           </div>
         </div>
       `;
@@ -924,7 +937,7 @@ if (worksheetSelect) {
       while ((match = blankRegex.exec(dict.sentence)) !== null) {
         const answer = match[1];
         const hint = dict.hints[blankIndex] || '';
-        const inputHtml = `<input type="text" class="dictation-input" data-answer="${escapeHtml(answer)}" placeholder="${escapeHtml(hint)}" style="background:transparent; border:none; border-bottom: 2px solid var(--accent-1); color:#fff; font-size:1rem; outline:none; text-align:center; min-width:80px; width: ${Math.max(answer.length * 12, 80)}px;">`;
+        const inputHtml = `<input type="text" class="dictation-input" data-answer="${escapeAttr(answer)}" placeholder="${escapeAttr(hint)}" style="background:transparent; border:none; border-bottom: 2px solid var(--accent-1); color:#fff; font-size:1rem; outline:none; text-align:center; min-width:80px; width: ${Math.max(answer.length * 12, 80)}px;">`;
         htmlSentence = htmlSentence.replace(match[0], inputHtml);
         blankIndex++;
       }
@@ -1055,7 +1068,7 @@ async function handleYoutubeSubmit() {
         <div class="transcript-segment fade-in" style="margin-bottom: 1.5rem; padding: 1.2rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
           <div class="timecode" style="color: var(--accent-1); font-weight: 600; font-size: 0.9rem; margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
             <span>⏱️ [${seg.time}]</span>
-            <button class="audio-btn" style="padding: 4px 8px; font-size: 0.75rem;" onclick="speakText('${escapeHtml(seg.text).replace(/'/g, "\\'")}')">🔊 듣기</button>
+            <button class="audio-btn" style="padding: 4px 8px; font-size: 0.75rem;" data-speak="${escapeAttr(seg.text)}">🔊 듣기</button>
           </div>
           <div class="eng-text" style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 0.8rem; line-height: 1.5;">${escapeHtml(seg.text)}</div>
           <div class="kor-text" style="font-size: 1.05rem; color: #fff; line-height: 1.6;">${escapeHtml(translated)}</div>
@@ -1461,7 +1474,6 @@ const pdfSpeech = new SpeechManager();
 let pdfjsPromise = null;
 let pdfRunId = 0;                 // 새 PDF를 열면 이전 분석 루프를 멈추기 위한 번호
 let pdfShadowTarget = null;       // { text, resultEl, btn }
-const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
 
 function loadPdfJs() {
   if (!pdfjsPromise) {
