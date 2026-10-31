@@ -7,17 +7,24 @@
       {
         "sentence": "It is ridiculous to {single out} a television show as a {scapegoat} for violence issues.",
         "ko": "한 개의 텔레비전 쇼를 잡아골라 폭력 문제의 희생양으로 삼는 것은 말도 안됩니다.",
-        "hints": ["뽑다, 고르다", "희생양"]
+        "hints": [
+          "뽑다, 고르다",
+          "희생양"
+        ]
       },
       {
         "sentence": "Parents don't have time to {monitor} everything.",
         "ko": "부모들은 모든 것을 감시할 시간이 없습니다.",
-        "hints": ["관찰하다, 감시하다"]
+        "hints": [
+          "관찰하다, 감시하다"
+        ]
       },
       {
         "sentence": "Very young children don't understand that it is just a program. It all becomes {messed up}.",
         "ko": "그것은 모두 뒤죽박죽이 되어버립니다.",
-        "hints": ["뒤죽박죽이된, 섞이는"]
+        "hints": [
+          "뒤죽박죽이된, 섞이는"
+        ]
       }
     ],
     "shadowing": {
@@ -33,17 +40,24 @@
       {
         "sentence": "They plan to reconvene in 2025. It’s gonna {fly by}.",
         "ko": "시간은 금방 지나갈거에요.",
-        "hints": ["시간은 금방 지나갈거에요"]
+        "hints": [
+          "시간은 금방 지나갈거에요"
+        ]
       },
       {
         "sentence": "Do you think though that the band they {could have used} their wealth and power {to be exempted}?",
         "ko": "그들은 부와 권력을 이용해서 면제 받을 수도 있었다.",
-        "hints": ["~할 수도 있었는데", "면제 받기 위해서"]
+        "hints": [
+          "~할 수도 있었는데",
+          "면제 받기 위해서"
+        ]
       },
       {
         "sentence": "I {don't mean to} fear monger but on the other hand, I don't know that tension has ever been higher.",
         "ko": "공포심을 조장하려는 것은 아닙니다.",
-        "hints": ["~하려는 의도는 없어요"]
+        "hints": [
+          "~하려는 의도는 없어요"
+        ]
       }
     ],
     "shadowing": {
@@ -59,22 +73,30 @@
       {
         "sentence": "It {unlocks} so much more content.",
         "ko": "그것이 훨씬 더 많은 콘텐츠의 문을 열어줍니다.",
-        "hints": ["열다, 잠금해제하다"]
+        "hints": [
+          "열다, 잠금해제하다"
+        ]
       },
       {
         "sentence": "Reality TV shows have been {hugely popular} in Korea for decades.",
         "ko": "리얼리티 쇼는 한국에서 몇 십년 동안 엄청나게 인기가 있었습니다.",
-        "hints": ["엄청나게 인기있는"]
+        "hints": [
+          "엄청나게 인기있는"
+        ]
       },
       {
         "sentence": "It's just that they {haven't broken through} in the same way as K-pop and k-dramas.",
         "ko": "단지 그것들은 K팝이나 K드라마처럼 벽을 넘어서지 못했을 뿐입니다.",
-        "hints": ["돌파하지 못했다, 넘지 못했다"]
+        "hints": [
+          "돌파하지 못했다, 넘지 못했다"
+        ]
       },
       {
         "sentence": "K-pop {acts} have turned heads with their new music, choreography and style.",
         "ko": "케이팝 가수들은 그들의 새로운 음악과 안무 그리고 스타일로 사람들의 주목을 끌었습니다.",
-        "hints": ["공연자, 가수"]
+        "hints": [
+          "공연자, 가수"
+        ]
       }
     ],
     "shadowing": {
@@ -90,22 +112,267 @@
       {
         "sentence": "Workers are so {in demand}.",
         "ko": "노동자들의 수요가 굉장히 높다.",
-        "hints": ["수요가 있는"]
+        "hints": [
+          "수요가 있는"
+        ]
       },
       {
         "sentence": "{Going up the corporate ladder} isn’t my end goal.",
         "ko": "회사에서 높은 자리에 오르는 것이 나의 최종적인 목표가 아니다.",
-        "hints": ["회사에서 승진하기"]
+        "hints": [
+          "회사에서 승진하기"
+        ]
       },
       {
         "sentence": "Workers mentally {step back from} the burdens of work working the {bare} minimum number of hours.",
         "ko": "직원들은 최소한의 근무시간만 지켜서 일한다.",
-        "hints": ["~로 부터 물러서다", "가장 기본적인 것만 갖춘"]
+        "hints": [
+          "~로 부터 물러서다",
+          "가장 기본적인 것만 갖춘"
+        ]
       }
     ],
     "shadowing": {
       "text": "Quiet quitting is a trending concept where workers work the bare minimum number of hours instead of working overtime or doing the best they can. It’s happening because workers are so in demand and a lot of people want to mentally step back from the burdens of work. Some boomers argue that it’s the dumbest idea because they believe that ‘you get out what you put in’. But Gen Z says that going up the corporate ladder isn’t their end goal anyway.",
       "ko": "조용한 퇴사는 근로자들이 초과 근무를 하거나 최선을 다하지 않고 최소한의 업무 시간만 근무하는 유행하는 개념입니다. 이것은 근로자들이 매우 수요가 높고, 많은 사람들이 정신적으로 일에 대한 부담감을 덜어내고 싶어하기 때문에 일어나는 일입니다. 일부 부머세대는 '일한만큼 얻는다'고 믿기 때문에 이것이 가장 어리석은 생각이라고 주장합니다. 그러나 Z세대는 어차피 회사에서 높은 자리에 올라가는 것이 그들의 최종 목표가 아니라고 말합니다."
+    }
+  },
+  {
+    "week": 5,
+    "title": "ChatGPT 가 위협하는 직업",
+    "youtubeUrl": "https://www.youtube.com/embed/wlImnArl0NM",
+    "dictation": [
+      {
+        "sentence": "Microsoft is the latest major tech company to {cut costs} by slashing jobs.",
+        "ko": "마이크로소프트는 일자리를 줄여서 비용을 절감한 주요 테크 회사입니다.",
+        "hints": [
+          "비용을 절감하다"
+        ]
+      },
+      {
+        "sentence": "This is different not because of the number of people {being laid off} but because of who.",
+        "ko": "이번 경우는 다릅니다. 해고되는 사람들의 숫자 때문이 아니라 누가 해고되느냐 때문입니다.",
+        "hints": [
+          "해고되는"
+        ]
+      },
+      {
+        "sentence": "The US economy is knowledge and information work and that's who's going to be most {squarely affected} by this.",
+        "ko": "미국 경제는 지식과 정보 사업입니다. 그리고 바로 그 사람들이 가장 정면으로 영향을 받게 될 것입니다.",
+        "hints": [
+          "가장 정면으로 영향을 받는"
+        ]
+      }
+    ],
+    "shadowing": {
+      "text": "Chat GPT will have an impact on the labor market. The US economy is knowledge and information work and that's who is going to be the most squarely affected. For example, lawyers and copywriters will be affected by this. And Microsoft is already slashing jobs to cut costs and investing heavily in Chat GPT. Perhaps the transformation of the white-collar labor market has already begun.",
+      "ko": "챗GPT는 노동시장에 영향을 끼칠 것입니다. 미국 경제는 지식과 정보 사업입니다. 바로 그 (분야) 사람들이 가장 곧바로 영향을 받을 것입니다. 예를 들어 변호사나 카피라이터들이 이에 영향을 받을 것입니다. 이미 마이크로소프트사는 비용 절감을 위해 일자리를 줄이고 있습니다. 그리고 챗GPT에 많은 돈을 투자하고 있습니다. 어쩌면 화이트 칼라 노동시장의 변화는 이미 시작되었는지도 모릅니다."
+    }
+  },
+  {
+    "week": 6,
+    "title": "미국 전문가들의 케이팝 토론",
+    "youtubeUrl": "https://www.youtube.com/embed/vik_s0sVn2M",
+    "dictation": [
+      {
+        "sentence": "K-pop fandom is incredibly {diverse}.",
+        "ko": "K-pop 팬덤은 엄청나게 다양합니다.",
+        "hints": [
+          "다양한"
+        ]
+      },
+      {
+        "sentence": "American music audience is getting less {xenophobic} over time.",
+        "ko": "미국 음악 청중들은 시간이 지남에 따라 외국인(문화)을 덜 배척하게 되고 있습니다.",
+        "hints": [
+          "외국인(문화)을 배척하는"
+        ]
+      },
+      {
+        "sentence": "The U.S market is {fickle} by ignorance.",
+        "ko": "미국 시장은 무지로 인해 변덕스럽습니다.",
+        "hints": [
+          "변덕스러운"
+        ]
+      },
+      {
+        "sentence": "I {have a big problem with} terms like Kpop factory.",
+        "ko": "저는 Kpop factory와 같은 용어들에 큰 불만이 있습니다(동의할 수 없습니다).",
+        "hints": [
+          "~에 큰 문제가 있다, 동의할 수 없다"
+        ]
+      },
+      {
+        "sentence": "Those terms are very {dehumanizing}.",
+        "ko": "그런 용어들은 매우 비인간적입니다.",
+        "hints": [
+          "비인간적인"
+        ]
+      }
+    ],
+    "shadowing": {
+      "text": "Some music experts in the US are skeptical about Kpop. They say that the US market is fickle by ignorance and that K-pop's popularity is just a passing trend. However, Kpop-friendly experts say that all mainstream audiences are being exposed to Kpop and it's unprecedented. Some doubters also argue that K-pop is manufactured creation and that the singers are like characters. However, one expert says that she has a big problem with terms like \"Kpop factory\" because they are dehumanizing. Kpop doubters say that only major cities where many Koreans live will sell tickets, and that it can't go beyond that. But others say that K-pop fandom is incredibly diverse and that US audience is getting less xenophobic over time.",
+      "ko": "미국의 일부 음악 전문가들은 Kpop에 대해 회의적입니다. 그들은 미국 시장이 무지로 인해 변덕스럽고 Kpop의 인기가 그저 스쳐 지나가는 트렌드일 뿐이라고 말합니다. 하지만 Kpop 친화적인 전문가들은 모든 주류 관객들이 Kpop에 노출되고 있으며 이는 전례 없는 일이라고 말합니다. 일부 회의론자들은 K-pop이 만들어진 창작물이며 가수들은 캐릭터 같다고 주장하기도 합니다. 그러나 한 전문가는 \"Kpop 공장\"과 같은 용어들이 비인간적이기 때문에 매우 동의할 수 없다고 말합니다. Kpop 회의론자들은 한국인이 많이 사는 주요 도시에서만 티켓이 팔릴 것이며 그 이상을 넘을 수 없다고 말합니다. 하지만 다른 사람들은 K-pop 팬덤이 엄청나게 다양하며 미국 관객들이 시간이 지남에 따라 외국 문화에 대한 배척을 줄여가고 있다고 말합니다."
+    }
+  },
+  {
+    "week": 7,
+    "title": "뉴욕 집세 폭등",
+    "youtubeUrl": "https://www.youtube.com/embed/HjgwTwTw0kw",
+    "dictation": [
+      {
+        "sentence": "Rents {soared}.",
+        "ko": "집세가 치솟았다.",
+        "hints": [
+          "치솟았다"
+        ]
+      },
+      {
+        "sentence": "The pandemic {hit} the city.",
+        "ko": "팬데믹이 뉴욕 시티를 강타했다.",
+        "hints": [
+          "강타하다"
+        ]
+      },
+      {
+        "sentence": "{Tenants} lost the bargaining power.",
+        "ko": "세입자들은 협상력을 잃었다.",
+        "hints": [
+          "세입자들"
+        ]
+      },
+      {
+        "sentence": "New York City began to {come back to life}.",
+        "ko": "뉴욕시가 다시 살아나기 시작했다.",
+        "hints": [
+          "다시 살아나다"
+        ]
+      },
+      {
+        "sentence": "New York City's population {dropped by} about 340,000.",
+        "ko": "뉴욕시의 인구가 약 34만명 정도 줄어들었다.",
+        "hints": [
+          "~만큼 감소하다"
+        ]
+      }
+    ],
+    "shadowing": {
+      "text": "In March 2020, the pandemic hit the city, and New York City's population dropped by about 340,000. As a result, rents dropped. However, in mid-2021, New York City began to come back to life, and tenants lost bargaining power again, causing rents to soar.",
+      "ko": "2020년 3월, 팬데믹이 도시를 강타하며 뉴욕시의 인구는 약 34만 명 감소했습니다. 그 결과, 월세도 하락했습니다. 그러나 2021년 중반, 뉴욕시가 다시 살아나기 시작하면서 세입자들은 협상력을 다시 잃어버렸고 월세는 급등했습니다."
+    }
+  },
+  {
+    "week": 8,
+    "title": "의사들 입 테이프 경고",
+    "youtubeUrl": "https://www.youtube.com/embed/cQORR6Cyk1E",
+    "dictation": [
+      {
+        "sentence": "It could {end up being} an emergency situation.",
+        "ko": "결국 응급상황이 되어버릴 수 있다.",
+        "hints": [
+          "결국 ~가 되다"
+        ]
+      },
+      {
+        "sentence": "Positive effects include better sleep, {lowering} blood pressure and filtering out allergens.",
+        "ko": "긍정적인 효과에는 수면이 개선되고, 혈압이 낮아지며 알레르기 물질을 걸러 주는 것이 있다.",
+        "hints": [
+          "낮춤"
+        ]
+      },
+      {
+        "sentence": "If we're building up carbon dioxide in our body, we need to {expel} that.",
+        "ko": "몸에 이산화탄소가 쌓이면 내보내야한다.",
+        "hints": [
+          "배출하다"
+        ]
+      },
+      {
+        "sentence": "Some people {swear by} taping their mouths.",
+        "ko": "어떤 사람들은 입을 테이프로 붙이는 것의 효과를 매우 신뢰한다.",
+        "hints": [
+          "~의 효과를 깊이 신뢰하다"
+        ]
+      }
+    ],
+    "shadowing": {
+      "text": "Some people swear by taping their mouths as a solution to mouth breathing. Of course, it has some positive effects: it improves sleep, lowers blood pressure, and filters out allergens. However, doctors warn that it could end up being an emergency situation because if we are building up carbon dioxide in our body, we need to expel it. Therefore, it can be dangerous to block your mouth.",
+      "ko": "일부 사람들은 마우스 테이핑하는 것이 입으로 호흡하는 문제를 해결하는 방법이라고 깊이 신뢰합니다. 물론 이에는 몇 가지 긍정적인 영향이 있습니다. 수면 개선, 혈압 감소, 알레르기 물질 여과 등이 있습니다. 그러나 의사들은 긴급 상황이 될 수 있다고 경고합니다. 왜냐하면 우리 몸에 이산화탄소가 쌓이면, 배출해야 하기 때문입니다. 따라서, 입을 막는 것은 위험할 수 있습니다."
+    }
+  },
+  {
+    "week": 9,
+    "title": "한국계 앵커 인종차별",
+    "youtubeUrl": "https://www.youtube.com/embed/G9L5aMue0Ig",
+    "dictation": [
+      {
+        "sentence": "Her fellow anchors were {upset} by the viewer's {racist comment}.",
+        "ko": "동료 앵커들은 그 시청자의 인종차별적인 발언에 불쾌해 했다.",
+        "hints": [
+          "불쾌한, 속상한",
+          "인종차별적인 발언"
+        ]
+      },
+      {
+        "sentence": "Michelle Li {mentioned} that she is Korean and {had eaten} dumpling soup.",
+        "ko": "미쉘리는 자신은 한국인이며 만두국을 먹었다고 언급했다.",
+        "hints": [
+          "언급하다",
+          "먹었다 (대과거)"
+        ]
+      },
+      {
+        "sentence": "One viewer left her a message saying, “{Keep} your Korean {to yourself}”.",
+        "ko": "한 시청자는 그녀에게 ‘한국인인거 티내지 말라’고 메시지를 남겼다.",
+        "hints": [
+          "~를 숨기다, 혼자만 간직하다",
+          "혼자만 알다"
+        ]
+      }
+    ],
+    "shadowing": {
+      "text": "While talking about New Year's food on a news program, the anchor, Michelle Li briefly mentioned that she's Korean and had eaten dumpling soup. And a viewer left her a message saying, “keep your Korean to yourself”. Her fellow anchors were upset by the racist comment and publicly showed their support for Michelle.",
+      "ko": "방송 중에 새해 음식에 대해 설명하던 앵커 미쉘리는 자신은 한국이라 만둣국을 먹었다고 짧게 언급합니다. 그런데 한 시청자는 그녀에게 ‘한국인임을 티내지 말라며’ 메시지를 남깁니다. 그녀의 동료 앵커들은 이 인종차별적인 메시지에 불쾌해 했으며 미쉘에게는 공개적으로 지지를 표했습니다."
+    }
+  },
+  {
+    "week": 10,
+    "title": "퇴사의 쓰나미",
+    "youtubeUrl": "https://www.youtube.com/embed/GyIQBVQEA9E",
+    "dictation": [
+      {
+        "sentence": "{A number of} people who worked remotely at the start of the pandemic have been unwilling to {give up their autonomy}.",
+        "ko": "팬데믹 초반에 원격 근무를 했던 많은 사람들이 자율성을 포기하기를 꺼려왔다.",
+        "hints": [
+          "많은 수의",
+          "자율성을 포기하다"
+        ]
+      },
+      {
+        "sentence": "The pandemic made them {reflect on their lives} and realize what they really want.",
+        "ko": "팬데믹은 그들이 자신을 삶을 바라보고 정말로 원하는 것이 무엇인지 깨닫게 만들었다.",
+        "hints": [
+          "그들의 인생을 반추하게"
+        ]
+      },
+      {
+        "sentence": "They feel burned out after {working through} a year that had so many challenges.",
+        "ko": "그들은 정말 많은 힘들 일이 있었던 한 해를 겪어내면서 번아웃된 느낌이다.",
+        "hints": [
+          "힘든 일을 겪어내다"
+        ]
+      },
+      {
+        "sentence": "‘The Great Resignation’ is the {growing trend} of workers quiting or just changing careers.",
+        "ko": "‘대퇴사’란 노동자들이 퇴사하거나 이직하는 추세의 증가를 말한다.",
+        "hints": [
+          "증가하는 추세"
+        ]
+      }
+    ],
+    "shadowing": {
+      "text": "‘The Great Resignation’ refers to the growing trend of workers quiting or just changing careers, and there are several reasons why this is happening. First, many workers are feeling burned out after working through a year that had so many challenges. Additionally, the pandemic made them reflect on their lives and realize what they really want. So, that led them to make new decisions about their future. Furthermore, a number of people who worked remotely have been unwilling to give up their autonomy. As a result, they are quitting their jobs and seeking better opportunities elsewhere.",
+      "ko": "'대퇴사'는 직장을 그만두거나 직업을 바꾸는 근로자가 증가하는 추세를 말하며, 이러한 현상이 발생하는 데에는 몇 가지 이유가 있습니다. 첫째, 많은 직장인들이 많은 어려움이 있었던 한 해를 보낸 후 번아웃된 느낌을 받고 있습니다. 또한 팬데믹으로 인해 자신의 삶을 반추하고 자신이 진정으로 원하는 것이 무엇인지 깨닫게 되었습니다. 그래서 미래에 대한 새로운 결정을 내리게 되었습니다. 또한 원격 근무를 하던 많은 사람들이 자율성을 포기하지 않으려 했습니다. 그 결과 직장을 그만두고 다른 곳에서 더 나은 기회를 찾고 있습니다."
     }
   }
 ]

@@ -1,16 +1,24 @@
 // worker/llm-worker.js - Cloudflare Worker: AI 텍스트 기능 전용 서버리스 백엔드 (Phase 1.9)
 //
 // server/main.py 의 /api/llm 로직을 그대로 옮긴 것입니다. PC가 꺼져 있어도 24시간 동작합니다.
-// 요청:  POST /api/llm { systemPrompt, userMessage }
-// 응답:  { success: true, data: {...}, source: "gemini" | "groq" }
+// 요청:  POST /api/llm { systemPrompt, userMessage, temperature?, prefer? }
+// 응답:  { success: true, data: {...}, source: "groq" | "gemini" | "workers-ai", model, ms, fallbackReason? }
+//
+// AI 제공자 세 곳을 순서대로 시도해 먼저 성공한 것을 돌려줍니다 (기본 순서: groq → gemini → workers-ai).
+//   - 순서 바꾸기: 환경변수 LLM_ORDER (예: "gemini,groq,workers-ai")
+//   - prefer: 요청 하나에서만 특정 제공자를 맨 앞으로 (속도 비교·진단용, 알려진 이름만 허용)
 //
 // 환경변수 (Cloudflare 대시보드 → Worker → Settings → Variables and Secrets):
-//   GEMINI_API_KEY (Secret), GROQ_API_KEY (Secret)
-//   GEMINI_MODEL, GROQ_MODEL (Text, 선택 — 모델이 단종되면 여기서만 바꾸면 됨. Groq는 아래 목록도 자동으로 차례대로 시도)
+//   GEMINI_API_KEY (Secret), GROQ_API_KEY (Secret)  — Workers AI는 wrangler.jsonc의 "ai" 바인딩이라 키가 필요 없음
+//   GEMINI_MODEL, GROQ_MODEL, WORKERS_AI_MODEL, LLM_ORDER (Text, 선택 — 모델이 단종되면 여기서만 바꾸면 됨)
 
 import { handleSync } from './sync.js';
 
 const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
+const DEFAULT_WORKERS_AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+// 2026-10-31 측정: Groq 1~2초, Gemini 6~18초 → 빠른 쪽을 먼저, 나머지는 한도·장애 대비 예비
+const DEFAULT_ORDER = ['groq', 'gemini', 'workers-ai'];
+const PROVIDER_TIMEOUT_MS = 30000;
 // Groq는 모델이 자주 단종되므로 여러 개를 순서대로 시도 (GROQ_MODEL 환경변수가 있으면 가장 먼저 시도)
 const DEFAULT_GROQ_MODELS = [
   'openai/gpt-oss-120b',
@@ -71,6 +79,7 @@ async function callGemini(env, systemPrompt, userMessage, temperature) {
       systemInstruction: { role: 'system', parts: [{ text: systemPrompt }] },
       generationConfig: { temperature: temperature ?? DEFAULT_TEMPERATURE, responseMimeType: 'application/json' },
     }),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
@@ -93,6 +102,7 @@ async function callGroqModel(env, model, systemPrompt, userMessage, temperature)
       // gpt-oss는 추론형이라 기본 설정에선 긴 요청에 수십 초 걸림 → 추론을 짧게
       ...(model.startsWith('openai/gpt-oss') && { reasoning_effort: 'low' }),
     }),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Groq ${model} ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
@@ -110,6 +120,45 @@ async function callGroq(env, systemPrompt, userMessage, temperature) {
     }
   }
   throw new Error(errors.join(' / '));
+}
+
+// Cloudflare Workers AI: 같은 Worker 안에서 바인딩(env.AI)으로 호출 — 키·지역 제한 없음
+async function callWorkersAi(env, systemPrompt, userMessage, temperature) {
+  const model = env.WORKERS_AI_MODEL || DEFAULT_WORKERS_AI_MODEL;
+  const run = env.AI.run(model, {
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage },
+    ],
+    max_tokens: 3000, // 기본값이 256이라 JSON이 중간에 잘리므로 크게 지정
+    ...(temperature !== undefined && { temperature }),
+  });
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Workers AI timeout')), PROVIDER_TIMEOUT_MS));
+  const result = await Promise.race([run, timeout]);
+  const out = result?.response;
+  return { model, data: out && typeof out === 'object' ? out : extractJson(String(out || '')) };
+}
+
+const PROVIDERS = {
+  groq: {
+    available: (env) => !!env.GROQ_API_KEY,
+    run: (env, s, u, t) => callGroq(env, s, u, t),
+  },
+  gemini: {
+    available: (env) => !!env.GEMINI_API_KEY,
+    run: async (env, s, u, t) => ({ model: env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL, data: await callGemini(env, s, u, t) }),
+  },
+  'workers-ai': {
+    available: (env) => !!env.AI,
+    run: (env, s, u, t) => callWorkersAi(env, s, u, t),
+  },
+};
+
+function providerOrder(env, prefer) {
+  const configured = (env.LLM_ORDER || '').split(',').map(n => n.trim()).filter(n => PROVIDERS[n]);
+  // 빠진 제공자는 뒤에 붙여 예비로 사용
+  const all = [...new Set([...(configured.length ? configured : DEFAULT_ORDER), ...DEFAULT_ORDER])];
+  return PROVIDERS[prefer] ? [prefer, ...all.filter(n => n !== prefer)] : all;
 }
 
 export default {
@@ -156,31 +205,23 @@ export default {
       return json({ success: false, detail: 'Input too long' }, 413, cors);
     }
 
-    const errors = [];
-
-    // 1순위: Gemini
-    if (env.GEMINI_API_KEY) {
+    const failures = [];
+    for (const name of providerOrder(env, body?.prefer)) {
+      const provider = PROVIDERS[name];
+      if (!provider.available(env)) continue;
+      const started = Date.now();
       try {
-        return json({ success: true, data: await callGemini(env, systemPrompt, userMessage, temperature), source: 'gemini' }, 200, cors);
+        const { data, model } = await provider.run(env, systemPrompt, userMessage, temperature);
+        // 앞선 제공자가 왜 실패했는지 남겨 둠 (브라우저 네트워크 탭과 Cloudflare 로그에서 확인용)
+        if (failures.length) console.warn(`${name} used after failures:`, failures.join(' | '));
+        return json({ success: true, data, source: name, model, ms: Date.now() - started, ...(failures.length && { fallbackReason: failures.join(' | ').slice(0, 400) }) }, 200, cors);
       } catch (e) {
-        errors.push(String(e.message || e));
+        failures.push(`${name}: ${String(e.message || e).slice(0, 160)}`);
       }
     }
 
-    // 2순위: Groq
-    if (env.GROQ_API_KEY) {
-      try {
-        const { model, data } = await callGroq(env, systemPrompt, userMessage, temperature);
-        // Gemini가 왜 실패했는지 남겨 둠 (브라우저 네트워크 탭과 Cloudflare 로그에서 확인용)
-        if (errors.length) console.warn('Gemini failed, used Groq:', errors[0]);
-        return json({ success: true, data, source: 'groq', model, fallbackReason: errors[0]?.slice(0, 300) }, 200, cors);
-      } catch (e) {
-        errors.push(String(e.message || e));
-      }
-    }
-
-    if (errors.length === 0) errors.push('No API keys configured (GEMINI_API_KEY / GROQ_API_KEY)');
-    console.error('LLM failed:', errors.join(' | '));
-    return json({ success: false, detail: errors.join(' | ') }, 502, cors);
+    if (failures.length === 0) failures.push('No AI provider configured (GROQ_API_KEY / GEMINI_API_KEY / AI binding)');
+    console.error('LLM failed:', failures.join(' | '));
+    return json({ success: false, detail: failures.join(' | ') }, 502, cors);
   },
 };
