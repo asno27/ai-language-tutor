@@ -1139,6 +1139,7 @@ function loadAiWorksheets() {
 function saveAiWorksheet(ws) {
   const list = [ws, ...loadAiWorksheets()].slice(0, AI_WS_MAX);
   try { localStorage.setItem(AI_WS_KEY, JSON.stringify(list)); } catch (e) { console.warn('학습지 저장 실패', e); }
+  queueChange('ai_worksheet', ws.at, ws, { updatedAt: Date.parse(ws.at) || Date.now() });
 }
 
 /** AI 응답 검증: 대화 4줄 이상, 받아쓰기 3개 이상(빈칸 수와 힌트 수가 맞고 대화 속 문장인 것만), 쉐도잉 문단 */
@@ -1852,6 +1853,7 @@ function saveRoleplayLog() {
   const entry = { id: s.id, title: s.title, level: s.level, at: s.id, log: s.log.slice(-60) };
   const list = [entry, ...loadRoleplayLogs().filter(l => l.id !== s.id)].slice(0, RP_LOG_MAX);
   try { localStorage.setItem(RP_LOG_KEY, JSON.stringify(list)); } catch (e) { console.warn('대화 저장 실패', e); }
+  queueChange('roleplay_log', entry.id, { ...entry, log: entry.log.slice(-40) }, { updatedAt: Date.now() });
 }
 
 function renderRoleplayHistory() {
@@ -1893,6 +1895,7 @@ rpHistory.addEventListener('click', (e) => {
   if (open) openRoleplayLog(open.dataset.rpOpen);
   else if (del) {
     try { localStorage.setItem(RP_LOG_KEY, JSON.stringify(loadRoleplayLogs().filter(l => l.id !== del.dataset.rpDel))); } catch {}
+    queueChange('roleplay_log', del.dataset.rpDel, null, { deleted: true });
     renderRoleplayHistory();
   } else if (e.target.closest('[data-rp-back]')) renderRoleplayHistory();
 });
@@ -2361,6 +2364,53 @@ registerSyncKind('mistake', {
 registerSyncKind('course_step', {
   apply: applyRemoteCourse,
   collectAll: collectAllCourse,
+});
+
+registerSyncKind('roleplay_log', {
+  apply(changes) {
+    let list = loadRoleplayLogs();
+    let changed = false;
+    for (const c of changes) {
+      if (c.deleted) {
+        if (list.some(l => l.id === c.id)) { list = list.filter(l => l.id !== c.id); changed = true; }
+        continue;
+      }
+      if (!c.data || !Array.isArray(c.data.log) || typeof c.data.title !== 'string' || list.some(l => l.id === c.id && l.log.length >= c.data.log.length)) continue;
+      list = [{ ...c.data, id: c.id }, ...list.filter(l => l.id !== c.id)];
+      changed = true;
+    }
+    if (changed) {
+      list.sort((a, b) => String(b.id).localeCompare(String(a.id)));
+      try { localStorage.setItem(RP_LOG_KEY, JSON.stringify(list.slice(0, RP_LOG_MAX))); } catch {}
+      if ($('#pane-roleplay').classList.contains('active') && !roleplaySession) renderRoleplayHistory();
+    }
+    return changed;
+  },
+  collectAll() {
+    return loadRoleplayLogs().map(l => ({ id: l.id, data: { ...l, log: l.log.slice(-40) }, updatedAt: Date.parse(l.id) || 1 }));
+  },
+});
+
+registerSyncKind('ai_worksheet', {
+  apply(changes) {
+    const list = loadAiWorksheets();
+    let changed = false;
+    for (const c of changes) {
+      const d = c.data;
+      if (c.deleted || !d || !d.at || !Array.isArray(d.dialogue) || !Array.isArray(d.dictation) || !d.shadowing || list.some(w => w.at === d.at)) continue;
+      list.push(d);
+      changed = true;
+    }
+    if (changed) {
+      list.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+      try { localStorage.setItem(AI_WS_KEY, JSON.stringify(list.slice(0, AI_WS_MAX))); } catch {}
+      refreshWorksheetOptions();
+    }
+    return changed;
+  },
+  collectAll() {
+    return loadAiWorksheets().map(w => ({ id: w.at, data: w, updatedAt: Date.parse(w.at) || 1 }));
+  },
 });
 
 registerSyncKind('setting', {
