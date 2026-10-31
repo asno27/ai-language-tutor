@@ -14,6 +14,7 @@
 | `youtubeUrl` | 임베드용 유튜브 주소 (`https://www.youtube.com/embed/영상ID`) |
 | `dictation[]` | 문장 3~5개: `sentence`(핵심 단어를 `{빈칸}`으로 표시), `ko`(한국어 해석), `hints[]`(빈칸별 한국어 힌트) |
 | `shadowing` | `text`(따라 읽을 문단), `ko`(한국어 해석) |
+| `audioUrl` | (선택) 영상 대신 쓸 음성 파일 주소(https). 있으면 위에 오디오 플레이어가 나옴. `youtubeUrl`도 `week`도 없어도 됨 |
 | `source`, `license`, `sourceUrl` | 출처 한 줄(화면에 표시). `license` 값: `public-domain` · `cc0` · `cc-by` · `original`(AI 오리지널) · `unverified`(권리 확인 중). 새 학습지를 추가할 때 반드시 채울 것 |
 
 → 즉 **① 영상 ② 그 영상의 정확한 대사(스크립트) ③ 그 대사를 가공해도 되는 권리**가 모두 있어야 합니다.
@@ -125,3 +126,18 @@ AI가 낸 표의 7곳을 하나씩 열어 확인했습니다. **모든 줄에 "�
 | 2026-10-31 | 자료실 링크 13개 | 모두 열림(HTTP 200) | `data/resources.json` |
 | 2026-10-31 | Gemini 딥리서치 학습지 소재(7곳) | 4곳 자료실 추가, 3곳 보류, 가짜 예시 1건·깨진 근거 주소 2건 발견 | 위 3-2b |
 | (예정) | 다른 AI(ChatGPT 등)의 조사 결과 | 검증 대기 | `docs/AI_Research_Prompts.md` |
+
+## 4. 실제로 만든 VOA 학습지 (2026-10-31)
+
+| 학습지 | 원본 | 작성자 표기 |
+|---|---|---|
+| 집(home) 표현 | [Make Yourself at Home!](https://learningenglish.voanews.com/a/words-and-their-stories-home-expressions/3628225.html) | Anna Matteo |
+| 원숭이에서 감자까지 | [From Monkeys to Potatoes](https://learningenglish.voanews.com/a/words-and-their-stories-from-monkeys-to-potatoes/4141925.html) | Anna Matteo |
+| 군대에서 온 말 | [Don't Be MIA!](https://learningenglish.voanews.com/a/words-and-their-stories-military-words/3589263.html) | Anna Matteo |
+| 스포츠 관용구 | [Idioms About Sports](https://learningenglish.voanews.com/a/idioms-about-sports/5687440.html) | Armen Kassabian |
+| 친구의 종류 | [We Really Need to Talk About Your Friends](https://learningenglish.voanews.com/a/words-and-their-stories-talk-about-friends/4074867.html) | Anna Matteo |
+
+- 각 페이지의 작성자·편집자 줄에 통신사 표기가 없음을 확인했고, 사진·이미지는 쓰지 않음.
+- 같은 페이지에 노래 가사(예: 친구 편의 Randy Newman 곡)가 인용된 경우 **가사 부분은 제외**.
+- 한국어 해석과 힌트는 직접 작성한 것. 음성은 VOA 서버 주소를 그대로 재생(복사 저장하지 않음).
+- 새 학습지 확인 절차: ① 페이지 크레딧 확인 ② 방송 mp3 주소 추출 ③ 앱의 파일 받아쓰기로 받아쓴 뒤 고른 문장이 음성에 실제로 나오는지 비교.

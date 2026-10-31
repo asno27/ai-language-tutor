@@ -944,7 +944,7 @@ function refreshWorksheetOptions() {
   allWorksheets().forEach((ws, index) => {
     const option = document.createElement('option');
     option.value = index;
-    option.textContent = ws.week ? `${ws.week}주차: ${ws.title}` : `✨ ${ws.title}`;
+    option.textContent = ws.week ? `${ws.week}주차: ${ws.title}` : ws.audioUrl ? `🎧 ${ws.title}` : `✨ ${ws.title}`;
     worksheetSelect.appendChild(option);
   });
   if (previous !== '') worksheetSelect.value = previous;
@@ -970,6 +970,10 @@ if (worksheetSelect) {
     worksheetContent.style.display = 'block';
     $('#worksheet-video-wrap').style.display = ws.youtubeUrl ? 'block' : 'none';
     worksheetVideo.src = ws.youtubeUrl || 'about:blank';
+    const audio = $('#worksheet-audio');
+    audio.pause();
+    audio.style.display = ws.audioUrl ? 'block' : 'none';
+    audio.src = /^https:\/\//.test(ws.audioUrl || '') ? ws.audioUrl : '';
     renderWorksheetSource(ws);
     renderWorksheetDialogue(ws);
 
