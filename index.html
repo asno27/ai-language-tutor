@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=17">
+  <link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
   <div id="app">
@@ -455,10 +455,22 @@
           <div class="pdf-status" id="pdf-status"></div>
         </div>
         <div class="glass-card output-card" id="pdf-ws-output" style="display:none;"></div>
+        <div class="glass-card input-card" id="ai-ws-card">
+          <div class="card-header">
+            <h2>✨ AI로 새 학습지 만들기</h2>
+            <p class="card-desc">원하는 주제를 쓰면 AI가 내 레벨에 맞는 새 대화문을 쓰고, 듣기 · 빈칸 받아쓰기 · 쉐도잉 학습지로 만들어 드려요. 저작권 걱정 없이 무한히 만들 수 있고, 만든 학습지는 이 기기에 저장돼요</p>
+          </div>
+          <input type="text" id="ai-ws-topic" class="text-input" maxlength="80" placeholder="주제 (예: 카페에서 주문하기, 회사 회식 일정 잡기, 공항 체크인)">
+          <div class="input-actions">
+            <span class="level-chip" id="ai-ws-level"></span>
+            <button class="submit-btn" id="ai-ws-go"><span class="btn-text">학습지 만들기</span><span class="btn-icon">✨</span></button>
+          </div>
+          <div class="pdf-status" id="ai-ws-status"></div>
+        </div>
         <div class="glass-card input-card">
           <div class="card-header">
             <h2>📖 인터랙티브 학습지 & 쉐도잉</h2>
-            <p class="card-desc">소울영어 학습지를 직접 풀고 낭독하며 실력을 키워보세요</p>
+            <p class="card-desc">학습지를 직접 풀고 낭독하며 실력을 키워보세요</p>
           </div>
           <div class="worksheet-selector" style="margin-bottom: 1.5rem;">
             <select id="worksheet-select" aria-label="학습할 주차 선택" class="text-input" style="cursor:pointer; width:100%;">
@@ -466,10 +478,16 @@
             </select>
           </div>
           <div id="worksheet-content" style="display:none;">
-            <div class="video-container" style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; margin-bottom:1.5rem;">
+            <div class="video-container" id="worksheet-video-wrap" style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; margin-bottom:1.5rem;">
               <iframe id="worksheet-video" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allowfullscreen></iframe>
             </div>
             <p id="worksheet-source" class="ws-source"></p>
+
+            <div id="worksheet-dialogue-wrap" style="display:none; margin-bottom: 2rem;">
+              <h3 style="margin-bottom: 0.6rem; color: var(--accent-1);">🎧 대화 듣기</h3>
+              <div class="ws-dialogue-actions"><button class="audio-btn" id="worksheet-dialogue-play">▶ 전체 듣기</button><button class="audio-btn" id="worksheet-dialogue-ko-toggle">한국어 해석 보기</button></div>
+              <div id="worksheet-dialogue"></div>
+            </div>
 
             <h3 style="margin-bottom: 1rem; color: var(--accent-1);">✍️ 딕테이션 (빈칸 채우기)</h3>
             <div id="worksheet-dictation" style="margin-bottom: 2rem;"></div>
@@ -624,7 +642,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=26"></script>
+  <script type="module" src="js/app.js?v=27"></script>
 
 
 

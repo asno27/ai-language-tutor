@@ -932,33 +932,46 @@ function renderWorksheetSource(ws) {
 
 let worksheetData = [];
 let currentWorksheet = null;
+let renderWorksheetFn = null; // renderWorksheet는 아래 if 블록 안에 있어 밖에서 쓰려고 담아 둠
 const worksheetSpeech = new SpeechManager();
+
+// 목록 = 기존 학습지(data/worksheet.json) + 내가 AI로 만든 학습지(이 기기에 저장)
+const allWorksheets = () => [...worksheetData, ...loadAiWorksheets()];
+
+function refreshWorksheetOptions() {
+  const previous = worksheetSelect.value;
+  worksheetSelect.innerHTML = '<option value="" disabled selected>학습할 학습지를 선택하세요</option>';
+  allWorksheets().forEach((ws, index) => {
+    const option = document.createElement('option');
+    option.value = index;
+    option.textContent = ws.week ? `${ws.week}주차: ${ws.title}` : `✨ ${ws.title}`;
+    worksheetSelect.appendChild(option);
+  });
+  if (previous !== '') worksheetSelect.value = previous;
+}
 
 if (worksheetSelect) {
   fetch('data/worksheet.json')
     .then(res => res.json())
     .then(data => {
       worksheetData = data;
-      data.forEach((ws, index) => {
-        const option = document.createElement('option');
-        option.value = index;
-        option.textContent = `${ws.week}주차: ${ws.title}`;
-        worksheetSelect.appendChild(option);
-      });
+      refreshWorksheetOptions();
     })
     .catch(err => console.error('Failed to load worksheet data', err));
 
   worksheetSelect.addEventListener('change', (e) => {
     const idx = e.target.value;
     if (idx === '') return;
-    currentWorksheet = worksheetData[idx];
+    currentWorksheet = allWorksheets()[idx];
     renderWorksheet(currentWorksheet);
   });
 
   function renderWorksheet(ws) {
     worksheetContent.style.display = 'block';
-    worksheetVideo.src = ws.youtubeUrl;
+    $('#worksheet-video-wrap').style.display = ws.youtubeUrl ? 'block' : 'none';
+    worksheetVideo.src = ws.youtubeUrl || 'about:blank';
     renderWorksheetSource(ws);
+    renderWorksheetDialogue(ws);
 
     worksheetDictation.innerHTML = '';
     ws.dictation.forEach((dict, i) => {
@@ -1012,6 +1025,7 @@ if (worksheetSelect) {
     worksheetOutput.innerHTML = `<div class="placeholder-message"><span class="placeholder-icon">🎯</span><p>낭독 후 발음과 유창성 피드백이 여기에 표시됩니다.</p></div>`;
     worksheetSttResult.style.display = 'none';
   }
+  renderWorksheetFn = renderWorksheet;
 
   if (!worksheetSpeech.isSupported) {
     worksheetMicBtn.style.opacity = '0.5';
@@ -1055,6 +1069,137 @@ if (worksheetSelect) {
     }
   });
 }
+
+// 대화문이 있는 학습지(AI 오리지널)는 영상 대신 대화 듣기 영역을 보여줌
+function renderWorksheetDialogue(ws) {
+  const wrap = $('#worksheet-dialogue-wrap');
+  const box = $('#worksheet-dialogue');
+  if (!ws.dialogue?.length) { wrap.style.display = 'none'; box.innerHTML = ''; return; }
+  wrap.style.display = 'block';
+  box.classList.remove('show-ko');
+  $('#worksheet-dialogue-ko-toggle').textContent = '한국어 해석 보기';
+  box.innerHTML = ws.dialogue.map(d => `<div class="ws-dlg-line">
+    <span class="ws-dlg-speaker">${escapeHtml(d.speaker)}</span>
+    <span style="flex:1"><span class="ws-dlg-en">${escapeHtml(d.text)}</span> <button class="audio-btn" style="padding:2px 8px;font-size:0.75rem" data-speak="${escapeAttr(d.text)}" aria-label="듣기">🔊</button>
+    <span class="ws-dlg-ko">${escapeHtml(d.ko)}</span></span></div>`).join('');
+  makeTextClickable(box);
+}
+
+let dialoguePlayToken = 0;
+$('#worksheet-dialogue-ko-toggle').addEventListener('click', () => {
+  const box = $('#worksheet-dialogue');
+  const on = box.classList.toggle('show-ko');
+  $('#worksheet-dialogue-ko-toggle').textContent = on ? '한국어 해석 숨기기' : '한국어 해석 보기';
+});
+// 전체 듣기: 줄 순서대로 읽고, 다시 누르면 멈춤
+$('#worksheet-dialogue-play').addEventListener('click', async () => {
+  const btn = $('#worksheet-dialogue-play');
+  if (btn.dataset.playing) { dialoguePlayToken++; window.speechSynthesis?.cancel(); return; }
+  const lines = (currentWorksheet?.dialogue || []).map(d => d.text);
+  if (!lines.length || !window.speechSynthesis) return;
+  const token = ++dialoguePlayToken;
+  btn.dataset.playing = '1';
+  btn.textContent = '⏹ 멈추기';
+  for (const line of lines) {
+    if (token !== dialoguePlayToken) break;
+    await new Promise(resolve => {
+      const u = new SpeechSynthesisUtterance(line);
+      u.lang = 'en-US';
+      u.onend = u.onerror = resolve;
+      window.speechSynthesis.speak(u);
+    });
+  }
+  delete btn.dataset.playing;
+  btn.textContent = '▶ 전체 듣기';
+});
+
+// === AI 오리지널 학습지 (W-4) ===
+// 저작권 걱정 없이 주제만 쓰면 AI가 새 대화문을 쓰고 듣기 · 받아쓰기 · 쉐도잉 학습지로 만듦. 최근 10개를 이 기기에 저장.
+const AI_WS_KEY = 'ai_worksheets';
+const AI_WS_MAX = 10;
+const aiWsTopic = $('#ai-ws-topic');
+const aiWsGo = $('#ai-ws-go');
+const aiWsStatus = $('#ai-ws-status');
+const aiWsLevel = $('#ai-ws-level');
+let aiWsBusy = false;
+
+function loadAiWorksheets() {
+  try {
+    const list = JSON.parse(localStorage.getItem(AI_WS_KEY));
+    return Array.isArray(list) ? list.filter(w => w && w.dialogue && w.dictation && w.shadowing) : [];
+  } catch { return []; }
+}
+
+function saveAiWorksheet(ws) {
+  const list = [ws, ...loadAiWorksheets()].slice(0, AI_WS_MAX);
+  try { localStorage.setItem(AI_WS_KEY, JSON.stringify(list)); } catch (e) { console.warn('학습지 저장 실패', e); }
+}
+
+/** AI 응답 검증: 대화 4줄 이상, 받아쓰기 3개 이상(빈칸 수와 힌트 수가 맞고 대화 속 문장인 것만), 쉐도잉 문단 */
+function validAiWorksheet(r, topic, level) {
+  if (!r || typeof r !== 'object' || !Array.isArray(r.dialogue)) return null;
+  const clean = (t) => String(t ?? '').replace(/\s+/g, ' ').trim();
+  const dialogue = r.dialogue.map(d => ({ speaker: clean(d?.speaker).slice(0, 20) || '?', text: clean(d?.text), ko: clean(d?.ko) })).filter(d => d.text);
+  if (dialogue.length < 4) return null;
+  const plain = (t) => clean(t).toLowerCase().replace(/[^a-z0-9' ]/g, '');
+  const allText = plain(dialogue.map(d => d.text).join(' '));
+  const dictation = (Array.isArray(r.dictation) ? r.dictation : []).map(d => {
+    const sentence = clean(d?.sentence);
+    const blanks = [...sentence.matchAll(/\{([^{}\s]+)\}/g)];
+    if (!blanks.length || blanks.length > 3 || !allText.includes(plain(sentence.replace(/[{}]/g, '')))) return null;
+    const hints = Array.isArray(d?.hints) ? d.hints.map(clean) : [];
+    while (hints.length < blanks.length) hints.push('');
+    return { sentence, ko: clean(d?.ko), hints: hints.slice(0, blanks.length) };
+  }).filter(Boolean);
+  if (dictation.length < 3) return null;
+  const shadowText = clean(r.shadowing?.text);
+  if (shadowText.split(' ').length < 8) return null;
+  return {
+    title: clean(r.title).slice(0, 60) || topic,
+    source: 'AI가 새로 쓴 오리지널 대화',
+    license: 'original',
+    topic, level, at: new Date().toISOString(),
+    dialogue, dictation: dictation.slice(0, 5),
+    shadowing: { text: shadowText, ko: clean(r.shadowing?.ko) },
+  };
+}
+
+function renderAiWsLevel() {
+  aiWsLevel.textContent = `📶 ${LEVELS[getUserLevel()].label} 레벨로 만들어요 (맨 위에서 바꿀 수 있어요)`;
+}
+renderAiWsLevel();
+onLevelChange(renderAiWsLevel);
+
+async function createAiWorksheet() {
+  if (aiWsBusy) return;
+  const topic = aiWsTopic.value.trim();
+  if (!topic) { aiWsTopic.focus(); aiWsStatus.textContent = '⚠️ 주제를 먼저 입력해 주세요.'; return; }
+  aiWsBusy = true;
+  aiWsGo.disabled = true;
+  aiWsStatus.textContent = '⏳ 대화문을 쓰고 학습지를 만들고 있어요... (10~20초)';
+  try {
+    const level = getUserLevel();
+    let ws = null;
+    for (let attempt = 0; attempt < 2 && !ws; attempt++) {
+      ws = validAiWorksheet(await callGemini('ai_worksheet', { topic, level }, { temperature: 0.9 }), topic, level);
+    }
+    if (!ws) throw new Error('학습지를 제대로 만들지 못했어요. 다시 시도해 주세요.');
+    saveAiWorksheet(ws);
+    refreshWorksheetOptions();
+    worksheetSelect.value = String(allWorksheets().length - loadAiWorksheets().length);
+    currentWorksheet = ws;
+    renderWorksheetFn(ws);
+    aiWsStatus.textContent = '✅ 학습지를 만들었어요! 아래에서 풀어 보세요.';
+    worksheetContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    aiWsStatus.textContent = `⚠️ ${e.message}`;
+  } finally {
+    aiWsBusy = false;
+    aiWsGo.disabled = false;
+  }
+}
+aiWsGo.addEventListener('click', createAiWorksheet);
+aiWsTopic.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) createAiWorksheet(); });
 
 // === YOUTUBE TRANSLATION ===
 // 두 가지 방식: ① 자막 붙여넣기(PC 불필요, Worker만 사용) ② 링크로 자동 가져오기(PC 서버 필요)

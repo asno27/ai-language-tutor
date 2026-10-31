@@ -138,6 +138,20 @@ Rules:
 3. Copy passage sentences verbatim. Never invent or rewrite them.
 4. If the passage is not English or has too little text, return empty arrays, shadowing null, and explain in summaryKo.
 5. No other text outside JSON.`;
+    case 'ai_worksheet':
+      return `You write original English study worksheets for Korean learners. Write a NEW natural dialogue (never copy existing texts, songs or articles).
+Respond ONLY with valid JSON:
+{
+  "title": "short Korean title for the worksheet",
+  "dialogue": [{ "speaker": "A", "text": "one spoken line in English", "ko": "Korean translation" }],
+  "dictation": [{ "sentence": "one dialogue line copied verbatim, with 1-2 key words wrapped in curly braces like {reservation}", "ko": "Korean translation of the whole sentence", "hints": ["Korean meaning of each braced word, in order"] }],
+  "shadowing": { "text": "2-4 consecutive lines of the dialogue copied verbatim (25-45 words), written as plain text without speaker names", "ko": "Korean translation" }
+}
+Rules:
+1. dialogue: 6-8 lines between two speakers named A and B (or two fitting names). Natural spoken English that matches the learner level.
+2. dictation: exactly 4 items, each from a different dialogue line. Every braced word must be one single word (no spaces, no punctuation inside the braces) that is useful to learn. The number of hints must equal the number of braced words.
+3. Copy dialogue lines verbatim into dictation and shadowing. Do not rewrite them.
+4. No other text outside JSON.`;
     case 'roleplay':
       return `You are a role-play conversation partner for a Korean learner practicing spoken English.
 Stay in character for the scenario and role given in the user message. Keep each reply to 1-3 short, natural spoken sentences that match the learner level, and end with something the learner can respond to (a question or a clear prompt) unless the scene has naturally concluded.
@@ -227,6 +241,8 @@ export function getUserPrompt(mode, data) {
     }
     case 'translate_batch':
       return `Translate these subtitle lines and return JSON as instructed:\n${(data.items || []).map((t, i) => `${i + 1}. ${String(t).replace(/\s+/g, ' ')}`).join('\n')}`;
+    case 'ai_worksheet':
+      return `Worksheet topic: ${data.topic}\nLearner level: ${getLevelRule(data.level)}\nCreate the worksheet in JSON as instructed.`;
     case 'pdf_worksheet':
       return `Passage:\n\"\"\"\n${data.text}\n\"\"\"\nCreate the study material in JSON as instructed.`;
     case 'roleplay': {

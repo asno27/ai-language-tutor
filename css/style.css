@@ -1690,3 +1690,10 @@ body::after {
 .course-go { flex-shrink: 0; }
 .course-doing { font-style: normal; font-size: 0.75rem; color: var(--warning-2); border: 1px solid rgba(247, 151, 30, 0.45); border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
 .sh-word.same-sound { border-bottom: 1px dotted rgba(255, 255, 255, 0.6); cursor: help; }
+
+/* === AI 오리지널 학습지 (W-4) === */
+.ws-dialogue-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0.7rem; }
+.ws-dlg-line { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px dashed rgba(255, 255, 255, 0.08); line-height: 1.6; }
+.ws-dlg-speaker { flex-shrink: 0; min-width: 2.2em; font-weight: 700; color: var(--accent-primary-1); }
+.ws-dlg-ko { display: none; color: var(--text-muted); font-size: 0.9rem; }
+#worksheet-dialogue.show-ko .ws-dlg-ko { display: block; }
